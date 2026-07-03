@@ -23,7 +23,7 @@ export default function QuotationsPage() {
   useEffect(() => { load() }, [])
 
   const handleSave = (data: any) => {
-    db.quotations.insert({
+    const payload: any = {
       number: data.documentNumber,
       client: data.clientName,
       clientId: data.clientId,
@@ -35,7 +35,11 @@ export default function QuotationsPage() {
       status: 'Sent',
       items: data.items,
       notes: data.notes
-    })
+    }
+    if (data.backendId) {
+      payload.backendId = data.backendId
+    }
+    db.quotations.insert(payload)
     db.notifications.insert({
       title: 'Quotation Created & Sent',
       message: `Quotation ${data.documentNumber} has been sent to the client.`,
@@ -90,31 +94,34 @@ export default function QuotationsPage() {
           </TabsList>
 
           <TabsContent value="list">
-            <Card className="border-none shadow-md overflow-hidden">
+            <Card className="border-none shadow-md overflow-hidden w-full">
               <CardContent className="p-0 sm:p-6">
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[120px]">Quotation #</TableHead>
-                        <TableHead className="min-w-[150px]">Client</TableHead>
-                        <TableHead className="min-w-[120px]">Date</TableHead>
-                        <TableHead className="min-w-[120px]">Due Date</TableHead>
-                        <TableHead className="min-w-[100px]">Amount</TableHead>
-                        <TableHead className="min-w-[100px]">Status</TableHead>
-                        <TableHead className="text-right min-w-[150px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {quotations.length > 0 ? quotations.map((quo) => (
-                        <TableRow key={quo.id}>
-                          <TableCell className="font-medium">{quo.number}</TableCell>
-                          <TableCell>{quo.client}</TableCell>
-                          <TableCell>{formatDate(quo.date)}</TableCell>
-                          <TableCell className="text-red-600 dark:text-red-400 font-medium">{formatDate(quo.dueDate)}</TableCell>
-                          <TableCell>{formatCurrency(quo.amount)}</TableCell>
-                          <TableCell><Badge variant={statusVariant(quo.status) as any}>{quo.status}</Badge></TableCell>
-                          <TableCell className="text-right">
+                  <Table className="w-full">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[120px]">Quotation #</TableHead>
+                          <TableHead className="min-w-[150px]">Client</TableHead>
+                          <TableHead className="min-w-[120px] hidden sm:table-cell">Date</TableHead>
+                          <TableHead className="min-w-[120px] hidden md:table-cell">Due Date</TableHead>
+                          <TableHead className="min-w-[100px]">Amount</TableHead>
+                          <TableHead className="min-w-[100px]">Status</TableHead>
+                          <TableHead className="text-right min-w-[120px] md:min-w-[150px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {quotations.length > 0 ? quotations.map((quo) => (
+                          <TableRow key={quo.id}>
+                            <TableCell>
+                              <div className="font-medium">{quo.number}</div>
+                              <div className="text-xs text-muted-foreground sm:hidden">{quo.client}</div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">{quo.client}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{formatDate(quo.date)}</TableCell>
+                            <TableCell className="hidden md:table-cell text-red-600 dark:text-red-400 font-medium">{formatDate(quo.dueDate)}</TableCell>
+                            <TableCell>{formatCurrency(quo.amount)}</TableCell>
+                            <TableCell><Badge variant={statusVariant(quo.status) as any}>{quo.status}</Badge></TableCell>
+                            <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">

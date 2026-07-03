@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from datetime import date
 from typing import Any, Optional, List
 from app.models.quotation import Quotation, QuotationStatus
@@ -68,15 +68,15 @@ class QuotationService:
         return quotation
 
     async def send_quotation(self, quotation_id: str, payload: Any = None) -> Quotation:
-        print(f"🚀 [STEP 1] Starting send_quotation for ID: {quotation_id}")
+        print(f"[STEP 1] Starting send_quotation for ID: {quotation_id}")
         try:
             quotation = await self.get_by_id(quotation_id)
-            print(f"📝 [STEP 2] Quotation loaded: {quotation.quotation_number}")
+            print(f"[STEP 2] Quotation loaded: {quotation.quotation_number}")
             
             email_svc = EmailService()
             client_res = await self.db.execute(select(Client).where(Client.id == quotation.client_id))
             client = client_res.scalars().first()
-            print(f"🤝 [STEP 3] Client loaded: {client.name if client else 'N/A'}")
+            print(f"[STEP 3] Client loaded: {client.name if client else 'N/A'}")
             
             target_email = None
             if payload and hasattr(payload, 'to_email'):
@@ -88,17 +88,17 @@ class QuotationService:
                 target_email = client.email if client else None
             
             if not target_email:
-                print(f"❌ [STEP 3.ERR] No target email found")
+                print(f"[STEP 3.ERR] No target email found")
                 raise HTTPException(status_code=400, detail="Recipient email is required")
 
             settings = await payment_service.get_settings(self.db, self.user_id)
             user_res = await self.db.execute(select(User).where(User.id == self.user_id))
             user = user_res.scalars().first()
-            print(f"⚙️ [STEP 4] Settings and User loaded")
+            print(f"[STEP 4] Settings and User loaded")
 
             payment_links = {}
             if settings and settings.stripe_enabled:
-                print(f"💳 [STEP 5] Generating Stripe link...")
+                print(f"[STEP 5] Generating Stripe link...")
                 try:
                     stripe_svc = StripeService(settings)
                     base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -108,11 +108,11 @@ class QuotationService:
                     session = stripe_svc.create_checkout_session(quotation, success_url, cancel_url)
                     if session:
                         payment_links["stripe"] = session.url
-                        print(f"🔗 [STEP 5.1] Stripe link generated")
+                        print(f"[STEP 5.1] Stripe link generated")
                 except Exception as e:
-                    print(f"⚠️ [STEP 5.ERR] Stripe Error: {e}")
+                    print(f"[STEP 5.ERR] Stripe Error: {e}")
 
-            print(f"📄 [STEP 6] Generating PDF...")
+            print(f"[STEP 6] Generating PDF...")
             quot_data = {
                 "quotation_number": quotation.quotation_number,
                 "issue_date": quotation.issue_date,
@@ -133,7 +133,7 @@ class QuotationService:
                 }
             }
             pdf_bytes = PDFService.generate_quotation_pdf(quot_data, user)
-            print(f"📎 [STEP 7] PDF generated ({len(pdf_bytes)} bytes)")
+            print(f"[STEP 7] PDF generated ({len(pdf_bytes)} bytes)")
             
             attachments = [
                 {
@@ -153,35 +153,37 @@ class QuotationService:
                 items=quotation.items
             )
 
-            email_content = email_svc.get_quotation_html(safe_quotation, settings, payment_links)
-            
             company_display_name = "BritLedger AI"
             if settings and settings.account_name:
                 company_display_name = settings.account_name
             elif user and user.full_name:
                 company_display_name = user.full_name
 
-            print(f"📧 [STEP 8] Sending email to {target_email}...")
+            sender_email = user.email if user else None
+            email_content = email_svc.get_quotation_html(safe_quotation, settings, payment_links, sender_email=sender_email, sender_name=company_display_name)
+
+            print(f"[STEP 8] Sending email to {target_email}...")
             result, error_msg = email_svc.send_invoice_email(
                 to_email=target_email,
                 subject=f"Quotation {quotation.quotation_number} from {company_display_name}",
                 html_content=email_content,
-                attachments=attachments
+                attachments=attachments,
+                reply_to=sender_email,
             )
             
             if result:
                 quotation.status = QuotationStatus.SENT
                 await self.db.commit()
                 await self.db.refresh(quotation)
-                print(f"✅ [STEP 9] Email sent and status updated")
+                print(f"[STEP 9] Email sent and status updated")
                 return quotation
             else:
-                print(f"❌ [STEP 9.ERR] Resend failed: {error_msg}")
+                print(f"[STEP 9.ERR] Resend failed: {error_msg}")
                 raise HTTPException(status_code=500, detail=f"Email provider error: {error_msg}")
         except HTTPException:
             raise
         except Exception as e:
-            print(f"💥 [CRITICAL] Internal Error: {str(e)}")
+            print(f"[CRITICAL] Internal Error: {str(e)}")
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
@@ -214,7 +216,8 @@ class QuotationService:
             query = query.where(Quotation.status == status_filter)
         if kwargs.get('client_id'):
             query = query.where(Quotation.client_id == kwargs.get('client_id'))
-            
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
         result = await self.db.execute(query.offset((page-1)*page_size).limit(page_size))
         quotations = result.scalars().all()
-        return {"success": True, "data": quotations, "total": len(quotations), "page": page, "page_size": page_size}
+        return {"success": True, "data": quotations, "total": total, "page": page, "page_size": page_size, "total_pages": (total + page_size - 1) // page_size if total else 0}

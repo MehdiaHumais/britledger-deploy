@@ -8,9 +8,10 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000,
 })
 
-console.log('🌐 [API_DEBUG] Base URL:', API_URL)
+console.log('[API_DEBUG] Base URL:', API_URL)
 
 // Add token to requests
 api.interceptors.request.use((config) => {
@@ -40,6 +41,9 @@ export const authApi = {
   login: (data: any) => api.post('/api/v1/auth/login', data),
   register: (data: any) => api.post('/api/v1/auth/register', data),
   me: () => api.get('/api/v1/auth/me'),
+  fingerprintRegister: (data: any) => api.post('/api/v1/auth/fingerprint/register', data),
+  fingerprintLogin: (data: any) => api.post('/api/v1/auth/fingerprint/login', data),
+  fingerprintUpgrade: (data: any) => api.post('/api/v1/auth/fingerprint/upgrade', data),
 }
 
 export const userApi = {

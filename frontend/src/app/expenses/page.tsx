@@ -31,9 +31,7 @@ export default function ExpensesPage() {
   })
 
   const fetchTransactions = () => {
-    setLoading(true)
     setTransactions(db.expenses.getAll('date', false))
-    setLoading(false)
   }
 
   useEffect(() => { fetchTransactions() }, [])
@@ -185,7 +183,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* Transactions Table */}
-        <Card className="border-none shadow-md">
+        <Card className="border-none shadow-md w-full overflow-hidden">
           <CardHeader>
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
@@ -198,7 +196,7 @@ export default function ExpensesPage() {
           </CardHeader>
           <CardContent className="p-0 sm:p-6">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[100px]">Date</TableHead>

@@ -13,16 +13,14 @@ class EmailService:
         to_email: str, 
         subject: str, 
         html_content: str, 
-        attachments: Optional[List[dict]] = None
+        attachments: Optional[List[dict]] = None,
+        reply_to: Optional[str] = None,
     ):
         resend.api_key = settings.EMAIL_API_KEY
         
-        # Use a more professional from name that matches the domain better if possible
-        # Using getattr to avoid AttributeError if the reloader is mid-transition
         from_name = getattr(settings, "COMPANY_NAME", None) or settings.APP_NAME 
         from_email = settings.SENDER_EMAIL or "onboarding@resend.dev"
 
-        # Improve subject line to look less like a bot
         personalized_subject = f"{subject} from {from_name}" if from_name not in subject else subject
 
         from bs4 import BeautifulSoup
@@ -32,7 +30,7 @@ class EmailService:
         except:
             text_content = "Professional Invoice from BritLedger AI. Please check the attached PDF."
 
-        print(f"📧 [EMAIL_PERSONALIZED] Sending: {personalized_subject}")
+        print(f"[EMAIL_PERSONALIZED] Sending: {personalized_subject}")
         
         processed_attachments = []
         if attachments:
@@ -45,7 +43,6 @@ class EmailService:
                     except:
                         pass
                 
-                # Resend requires content to be a list of integers for JSON serialization
                 if isinstance(content, (bytes, bytearray)):
                     content = list(content)
                     
@@ -61,16 +58,18 @@ class EmailService:
             "html": html_content,
             "text": text_content,
         }
+        if reply_to:
+            params["reply_to"] = [reply_to]
         if processed_attachments:
             params["attachments"] = processed_attachments
             
         try:
             result = resend.Emails.send(params)
-            print(f"✅ [EMAIL_SUCCESS] Resend ID: {getattr(result, 'id', result)}")
+            print(f"[EMAIL_SUCCESS] Resend ID: {getattr(result, 'id', result)}")
             return result, None
         except Exception as e:
             error_msg = str(e)
-            print(f"❌ [EMAIL_ERROR] {error_msg}")
+            print(f"[EMAIL_ERROR] {error_msg}")
             return None, error_msg
 
     def _generate_items_table(self, items, currency="GBP"):
@@ -117,10 +116,15 @@ class EmailService:
         </table>
         """
 
-    def get_invoice_html(self, invoice, company_settings, payment_links):
+    def get_invoice_html(self, invoice, company_settings, payment_links, sender_email=None, sender_name=None):
         stripe_link = payment_links.get("stripe")
         items_html = self._generate_items_table(getattr(invoice, "items", []), getattr(invoice, "currency", "GBP"))
-        
+        sender_block = f"""<div style="background-color: #eef2ff; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #2563eb;">
+            <div style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Sent By</div>
+            <div style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;">{sender_name or 'BritLedger AI'}</div>
+            <div style="font-size: 14px; color: #2563eb; margin-top: 2px;">{sender_email or ''}</div>
+        </div>""" if sender_email else ""
+
         return f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -147,6 +151,7 @@ class EmailService:
                         <h1 style="margin: 0; font-size: 28px; letter-spacing: -0.025em;">BritLedger AI</h1>
                     </div>
                     <div class="content">
+                        {sender_block}
                         <h2 style="margin-top: 0; font-size: 20px;">Invoice Received</h2>
                         <p>Hi there, here is your invoice. You can pay securely using the button below or review the attached PDF for a full breakdown.</p>
                         
@@ -174,10 +179,15 @@ class EmailService:
         </html>
         """
 
-    def get_quotation_html(self, quotation, company_settings, payment_links=None):
+    def get_quotation_html(self, quotation, company_settings, payment_links=None, sender_email=None, sender_name=None):
         stripe_link = (payment_links or {}).get("stripe")
         items_html = self._generate_items_table(getattr(quotation, "items", []), getattr(quotation, "currency", "GBP"))
-        
+        sender_block = f"""<div style="background-color: #eef2ff; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #6366f1;">
+            <div style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Sent By</div>
+            <div style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;">{sender_name or 'BritLedger AI'}</div>
+            <div style="font-size: 14px; color: #6366f1; margin-top: 2px;">{sender_email or ''}</div>
+        </div>""" if sender_email else ""
+
         return f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -203,6 +213,7 @@ class EmailService:
                         <h1 style="margin: 0; font-size: 28px;">BritLedger AI</h1>
                     </div>
                     <div class="content">
+                        {sender_block}
                         <h2 style="margin-top: 0; font-size: 20px;">New Quotation</h2>
                         <p>We are pleased to provide you with the following quotation. Review the details below or check the attached PDF.</p>
                         

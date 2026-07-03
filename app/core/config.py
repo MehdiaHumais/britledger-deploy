@@ -30,15 +30,21 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str | None = None
     SUPABASE_ANON_KEY: str | None = None
-    SUPABASE_DATABASE_URL_RAW: str = Field(alias="SUPABASE_DATABASE_URL")
+    SUPABASE_DATABASE_URL_RAW: str = Field(alias="SUPABASE_DATABASE_URL", default="")
+
+    @property
+    def database_url(self) -> str:
+        """Use Supabase if URL is set, otherwise fall back to SQLite for development"""
+        supabase_url = self.SUPABASE_DATABASE_URL
+        if supabase_url:
+            return supabase_url
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "britledger_dev.db")
+        return f"sqlite+aiosqlite:///{db_path}"
 
     @property
     def SUPABASE_DATABASE_URL(self) -> str:
         """Async URL for FastAPI/asyncpg"""
         url = self.SUPABASE_DATABASE_URL_RAW
-        if "pooler.supabase.com" in url and "prepared_statement_cache_size=0" not in url:
-            separator = "&" if "?" in url else "?"
-            url = f"{url}{separator}prepared_statement_cache_size=0"
         return url
 
     @property

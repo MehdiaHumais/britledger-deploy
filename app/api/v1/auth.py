@@ -11,8 +11,13 @@ from app.schemas.user import (
     LoginRequest,
     TokenResponse,
     User as UserSchema,
+    FingerprintRegisterRequest,
+    FingerprintLoginRequest,
+    FingerprintUpgradeRequest,
 )
 from app.schemas.common import APIResponse
+
+FINGERPRINT_DOMAIN = "@fingerprint.local"
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -20,7 +25,6 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 @router.post("/register", response_model=APIResponse, status_code=201)
 async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """Register a new user. Returns 422 if validation fails, 409 if email taken."""
-    # Check email uniqueness
     result = await db.execute(select(User).where(User.email == payload.email))
     if result.scalars().first():
         raise HTTPException(
@@ -67,6 +71,80 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=token)
 
 
+@router.post("/fingerprint/register", response_model=APIResponse)
+async def fingerprint_register(payload: FingerprintRegisterRequest, db: AsyncSession = Depends(get_db)):
+    """Register a new user with a device fingerprint (no password needed)."""
+    fake_email = f"{payload.device_id}{FINGERPRINT_DOMAIN}"
+    result = await db.execute(select(User).where(User.email == fake_email))
+    if result.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This device is already registered. Please log in with fingerprint.",
+        )
+
+    import uuid
+    user = User(
+        email=fake_email,
+        full_name=payload.name,
+        hashed_password=get_password_hash(str(uuid.uuid4())),
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    token = create_access_token(subject=user.id)
+    return APIResponse(
+        data={"access_token": token, "token_type": "bearer", "user_id": user.id, "is_fingerprint": True}
+    )
+
+
+@router.post("/fingerprint/login", response_model=TokenResponse)
+async def fingerprint_login(payload: FingerprintLoginRequest, db: AsyncSession = Depends(get_db)):
+    """Login with a device fingerprint."""
+    fake_email = f"{payload.device_id}{FINGERPRINT_DOMAIN}"
+    result = await db.execute(select(User).where(User.email == fake_email))
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No fingerprint account found on this device. Please register first.",
+        )
+
+    token = create_access_token(subject=user.id)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/fingerprint/upgrade", response_model=APIResponse)
+async def fingerprint_upgrade(
+    payload: FingerprintUpgradeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add email + password to a fingerprint-only account as backup."""
+    if not current_user.email.endswith(FINGERPRINT_DOMAIN):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account already has email/password credentials.",
+        )
+
+    existing = await db.execute(select(User).where(User.email == payload.email))
+    if existing.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is already in use.",
+        )
+
+    current_user.email = payload.email
+    current_user.hashed_password = get_password_hash(payload.password)
+    await db.commit()
+    await db.refresh(current_user)
+
+    return APIResponse(message="Account upgraded with email and password successfully.")
+
+
 @router.get("/me", response_model=APIResponse[UserSchema])
 async def get_me(current_user: User = Depends(get_current_user)):
-    return APIResponse(data=current_user)
+    user_data = UserSchema.model_validate(current_user)
+    user_data.is_fingerprint = current_user.email.endswith(FINGERPRINT_DOMAIN)
+    return APIResponse(data=user_data)

@@ -31,7 +31,6 @@ export default function ReportsPage() {
   const [showAiModal, setShowAiModal] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
     setInvoices(db.invoices.getAll())
     setExpenses(db.expenses.getAll())
     setLoading(false)
@@ -135,12 +134,12 @@ ${!isProfit?`<table><thead><tr><th>VAT Summary</th><th class="right">Amount</th>
           ) : (
             <>
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="border-none shadow-md lg:col-span-2">
+                <Card className="border-none shadow-md lg:col-span-2 w-full min-w-0 overflow-hidden">
                   <CardHeader>
                     <CardTitle>Profit & Loss (Monthly)</CardTitle>
                     <CardDescription>Revenue vs Expenses — current year</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-[350px]">
+                  <CardContent className="h-[250px] sm:h-[350px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={pAndLData}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -155,7 +154,7 @@ ${!isProfit?`<table><thead><tr><th>VAT Summary</th><th class="right">Amount</th>
                   </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-md">
+                <Card className="border-none shadow-md overflow-hidden">
                   <CardHeader>
                     <CardTitle>Reports Library</CardTitle>
                     <CardDescription>Generate specific financial documents</CardDescription>
@@ -248,12 +247,11 @@ ${!isProfit?`<table><thead><tr><th>VAT Summary</th><th class="right">Amount</th>
                             setAiResult(res.data.data);
                             setShowAiModal(true);
                             
-                            // Save to official notifications with full data
                             db.notifications.insert({
                               title: 'New AI Financial Insight',
                               message: res.data.data.summary || 'AI has analyzed your financial data and provided new recommendations.',
                               type: 'ai_insight',
-                              metadata: res.data.data, // Full AI analysis
+                              metadata: res.data.data,
                               date: new Date().toISOString(),
                               isRead: false
                             });
@@ -261,9 +259,12 @@ ${!isProfit?`<table><thead><tr><th>VAT Summary</th><th class="right">Amount</th>
                             info('AI Insight', 'Insights generated successfully.');
                           }
                         } catch (err: any) {
-                          console.error('AI Insight Error:', err);
-                          const msg = err.response?.data?.message || err.message || 'Failed to generate insights.';
-                          error('AI Error', msg);
+                          if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
+                            info('Backend Offline', 'The AI service is not running. Start the backend server to use AI insights, or view your financial data manually.')
+                          } else {
+                            const msg = err.response?.data?.message || err.message || 'Failed to generate insights.';
+                            error('AI Error', msg)
+                          }
                         } finally {
                           setAiLoading(false);
                         }

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth-store'
@@ -11,12 +11,27 @@ import { motion } from 'framer-motion'
 import db from '@/lib/local-db'
 import { signJWT } from '@/lib/jwt'
 
+function getDeviceId(): string {
+  let deviceId = localStorage.getItem('britledger_device_id')
+  if (!deviceId) {
+    deviceId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36)
+    localStorage.setItem('britledger_device_id', deviceId)
+  }
+  return deviceId
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isFingerprintLoading, setIsFingerprintLoading] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [error, setError] = useState('')
   const setUser = useAuthStore((state) => state.setUser)
+
+  useEffect(() => {
+    setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
+  }, [])
   const setToken = useAuthStore((state) => state.setToken)
   const router = useRouter()
 
@@ -26,18 +41,16 @@ export default function LoginPage() {
     setError('')
     
     setTimeout(async () => {
-      // Find user in local-db
       const user = db.users.findOne((u: any) => u.email?.toLowerCase() === email.toLowerCase() && u.password === password)
       
       if (user) {
-        // We found the user, now generate a real JWT token
         const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
         const payload = {
           sub: user.id,
           email: user.email,
           name: user.name,
           company: user.company_name,
-          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30) // 30 days expiration
+          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30)
         }
         
         try {
@@ -56,7 +69,6 @@ export default function LoginPage() {
           })
           setToken(token)
           
-          // Store token in localStorage as well to persist authentication
           localStorage.setItem('britledger_token', token)
           
           setIsLoading(false)
@@ -70,6 +82,101 @@ export default function LoginPage() {
         setIsLoading(false)
       }
     }, 800)
+  }
+
+  const handleFingerprint = async () => {
+    setIsFingerprintLoading(true)
+    setError('')
+    
+    const deviceId = getDeviceId()
+    
+    setTimeout(async () => {
+      let userRecord = db.users.findOne((u: any) => u.email === `${deviceId}@fingerprint.local`)
+      
+      if (userRecord) {
+        const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
+        const payload = {
+          sub: userRecord.id,
+          email: userRecord.email,
+          name: userRecord.name,
+          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30)
+        }
+        
+        try {
+          const token = await signJWT(payload, secret)
+          setUser({
+            id: userRecord.id,
+            name: userRecord.name,
+            email: userRecord.email,
+            is_fingerprint: true,
+          })
+          setToken(token)
+          localStorage.setItem('britledger_token', token)
+          setIsFingerprintLoading(false)
+          router.push('/dashboard')
+        } catch (err) {
+          setError('Failed to authenticate with fingerprint')
+          setIsFingerprintLoading(false)
+        }
+      } else {
+        setError('No fingerprint account found. Please sign up first.')
+        setIsFingerprintLoading(false)
+      }
+    }, 600)
+  }
+
+  const handleFingerprintSignup = async () => {
+    setIsFingerprintLoading(true)
+    setError('')
+    
+    const deviceId = getDeviceId()
+    const name = prompt('Enter your name to create a fingerprint account:')
+    if (!name) {
+      setIsFingerprintLoading(false)
+      return
+    }
+    
+    setTimeout(async () => {
+      let existingUser = db.users.findOne((u: any) => u.email === `${deviceId}@fingerprint.local`)
+      if (existingUser) {
+        setError('This device already has a fingerprint account. Please log in with fingerprint.')
+        setIsFingerprintLoading(false)
+        return
+      }
+      
+      const newUser = db.users.insert({
+        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+        name,
+        email: `${deviceId}@fingerprint.local`,
+        password: Math.random().toString(36),
+        is_fingerprint: true,
+      })
+      
+      const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
+      const payload = {
+        sub: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30)
+      }
+      
+      try {
+        const token = await signJWT(payload, secret)
+        setUser({
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          is_fingerprint: true,
+        })
+        setToken(token)
+        localStorage.setItem('britledger_token', token)
+        setIsFingerprintLoading(false)
+        router.push('/dashboard')
+      } catch (err) {
+        setError('Failed to authenticate')
+        setIsFingerprintLoading(false)
+      }
+    }, 600)
   }
 
   return (
@@ -139,18 +246,51 @@ export default function LoginPage() {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <div className="relative w-full">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-              </div>
-            </div>
+            {isMobile && (
+              <>
+                <div className="relative w-full">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleFingerprint}
+                  disabled={isFingerprintLoading}
+                >
+                  {isFingerprintLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  ) : (
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2a6 6 0 0 0-6 6v3" />
+                      <path d="M18 11V8a6 6 0 0 0-1.5-4" />
+                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                      <circle cx="12" cy="16" r="2" />
+                      <path d="M10 16v3a2 2 0 0 0 4 0v-3" />
+                      <path d="M6 11h12a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z" />
+                    </svg>
+                  )}
+                  Fingerprint Login
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={handleFingerprintSignup}
+                  disabled={isFingerprintLoading}
+                >
+                  New here? Create fingerprint account
+                </Button>
+              </>
+            )}
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{' '}
               <Link href="/register" title="Create account" className="text-primary hover:underline font-semibold">
-                Register
+                Register{isMobile ? ' with Email' : ''}
               </Link>
             </p>
           </CardFooter>

@@ -3,6 +3,7 @@ from sqlalchemy import select
 from app.models.payment import PaymentSettings, PaymentTransaction, TransactionStatus, PaymentProvider
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.client import Client
+from app.models.user import User
 from app.core.encryption import encrypt_value, decrypt_value
 from app.services.stripe_service import StripeService
 from app.services.paypal_service import PayPalService
@@ -100,11 +101,16 @@ class PaymentService:
         client_result = await db.execute(select(Client).where(Client.id == invoice.client_id))
         client = client_result.scalars().first()
         
+        # Get sender user info
+        user_result = await db.execute(select(User).where(User.id == invoice.user_id))
+        user = user_result.scalars().first()
+        
         if client and client.email:
             email_svc.send_invoice_email(
                 to_email=client.email,
                 subject=f"Payment Confirmation - Invoice {invoice.invoice_number}",
-                html_content=f"<div style='font-family:sans-serif;'><h2>Payment Received!</h2><p>Thank you for your payment of <b>{invoice.currency} {amount}</b> for invoice <b>{invoice.invoice_number}</b>.</p><p>A receipt has been generated for your records.</p></div>"
+                html_content=f"<div style='font-family:sans-serif;'><h2>Payment Received!</h2><p>Thank you for your payment of <b>{invoice.currency} {amount}</b> for invoice <b>{invoice.invoice_number}</b>.</p><p>A receipt has been generated for your records.</p></div>",
+                reply_to=user.email if user else None,
             )
         
         await db.commit()

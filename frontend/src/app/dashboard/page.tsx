@@ -110,7 +110,7 @@ export default function DashboardPage() {
               <CardTitle>Revenue vs Expenses</CardTitle>
               <CardDescription>Monthly performance (paid invoices)</CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px] w-full overflow-hidden">
+            <CardContent className="h-[250px] sm:h-[300px] w-full overflow-hidden">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueData}>
                   <defs>
@@ -135,7 +135,7 @@ export default function DashboardPage() {
               <CardTitle>Expense Categories</CardTitle>
               <CardDescription>Top spending categories</CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px] flex flex-col sm:flex-row gap-4 items-center justify-center sm:justify-start">
+            <CardContent className="h-[250px] sm:h-[300px] flex flex-col sm:flex-row gap-4 items-center justify-center sm:justify-start">
               <div className="h-full w-full sm:w-[60%] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -165,7 +165,7 @@ export default function DashboardPage() {
               <CardTitle>Invoice Status</CardTitle>
               <CardDescription>Overall breakdown of invoices</CardDescription>
             </CardHeader>
-            <CardContent className="h-[250px]">
+            <CardContent className="h-[200px] sm:h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={invoiceStatusData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -230,7 +230,7 @@ function StatCard({ title, value, change, trend, icon }: {
   title: string; value: string; change: string; trend: 'up' | 'down' | 'none'; icon: React.ReactNode
 }) {
   return (
-    <Card className="overflow-hidden border-none shadow-md shadow-slate-200/50">
+    <Card className="overflow-hidden border-none shadow-md shadow-slate-200/50 w-full min-w-0">
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>

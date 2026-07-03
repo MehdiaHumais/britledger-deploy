@@ -24,7 +24,7 @@ export default function InvoicesPage() {
   useEffect(() => { load() }, [])
 
   const handleSave = (data: any) => {
-    const payload = {
+    const payload: any = {
       number: data.documentNumber,
       client: data.clientName,
       clientId: data.clientId,
@@ -36,6 +36,9 @@ export default function InvoicesPage() {
       status: editingInvoice ? editingInvoice.status : 'Sent',
       items: data.items,
       notes: data.notes
+    }
+    if (data.backendId) {
+      payload.backendId = data.backendId
     }
 
     if (editingInvoice) {
@@ -207,31 +210,34 @@ export default function InvoicesPage() {
           </TabsList>
 
           <TabsContent value="list">
-            <Card className="border-none shadow-md overflow-hidden">
+            <Card className="border-none shadow-md overflow-hidden w-full">
               <CardContent className="p-0 sm:p-6">
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[120px]">Invoice #</TableHead>
-                        <TableHead className="min-w-[150px]">Client</TableHead>
-                        <TableHead className="min-w-[120px]">Date</TableHead>
-                        <TableHead className="min-w-[120px]">Due Date</TableHead>
-                        <TableHead className="min-w-[100px]">Amount</TableHead>
-                        <TableHead className="min-w-[100px]">Status</TableHead>
-                        <TableHead className="text-right min-w-[200px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {invoices.length > 0 ? invoices.map((inv) => (
-                        <TableRow key={inv.id}>
-                          <TableCell className="font-medium">{inv.number}</TableCell>
-                          <TableCell>{inv.client}</TableCell>
-                          <TableCell>{formatDate(inv.date)}</TableCell>
-                          <TableCell className="text-red-600 dark:text-red-400 font-medium">{formatDate(inv.dueDate)}</TableCell>
-                          <TableCell>{formatCurrency(inv.amount)}</TableCell>
-                          <TableCell><Badge variant={statusVariant(inv.status) as any}>{inv.status}</Badge></TableCell>
-                          <TableCell className="text-right">
+                  <Table className="w-full">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[120px]">Invoice #</TableHead>
+                          <TableHead className="min-w-[150px]">Client</TableHead>
+                          <TableHead className="min-w-[120px] hidden sm:table-cell">Date</TableHead>
+                          <TableHead className="min-w-[120px] hidden md:table-cell">Due Date</TableHead>
+                          <TableHead className="min-w-[100px]">Amount</TableHead>
+                          <TableHead className="min-w-[100px]">Status</TableHead>
+                          <TableHead className="text-right min-w-[120px] md:min-w-[200px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoices.length > 0 ? invoices.map((inv) => (
+                          <TableRow key={inv.id}>
+                            <TableCell>
+                              <div className="font-medium">{inv.number}</div>
+                              <div className="text-xs text-muted-foreground sm:hidden">{inv.client}</div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">{inv.client}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{formatDate(inv.date)}</TableCell>
+                            <TableCell className="hidden md:table-cell text-red-600 dark:text-red-400 font-medium">{formatDate(inv.dueDate)}</TableCell>
+                            <TableCell>{formatCurrency(inv.amount)}</TableCell>
+                            <TableCell><Badge variant={statusVariant(inv.status) as any}>{inv.status}</Badge></TableCell>
+                            <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">

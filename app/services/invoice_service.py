@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import Any, Optional, List
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment import PaymentSettings
@@ -63,21 +63,21 @@ class InvoiceService:
         return invoice
 
     async def send_invoice(self, invoice_id: str, payload: Any = None) -> Invoice:
-        print(f"🚀 [STEP 1] Starting send_invoice for ID: {invoice_id}")
+        print(f"[STEP 1] Starting send_invoice for ID: {invoice_id}")
         try:
             invoice = await self.get_by_id(invoice_id)
-            print(f"📝 [STEP 2] Invoice loaded: {invoice.invoice_number}")
+            print(f"[STEP 2] Invoice loaded: {invoice.invoice_number}")
             
             settings = await payment_service.get_settings(self.db, self.user_id)
-            print(f"⚙️ [STEP 3] Payment settings loaded")
+            print(f"[STEP 3] Payment settings loaded")
             
             user_res = await self.db.execute(select(User).where(User.id == self.user_id))
             user = user_res.scalars().first()
-            print(f"👤 [STEP 4] User loaded: {user.email if user else 'N/A'}")
+            print(f"[STEP 4] User loaded: {user.email if user else 'N/A'}")
 
             payment_links = {}
             if settings and settings.stripe_enabled:
-                print(f"💳 [STEP 5] Stripe enabled, generating link...")
+                print(f"[STEP 5] Stripe enabled, generating link...")
                 try:
                     stripe_svc = StripeService(settings)
                     base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -86,13 +86,13 @@ class InvoiceService:
                     session = stripe_svc.create_checkout_session(invoice, success_url, cancel_url)
                     if session:
                         payment_links["stripe"] = session.url
-                        print(f"🔗 [STEP 5.1] Stripe link generated")
+                        print(f"[STEP 5.1] Stripe link generated")
                 except Exception as se:
-                    print(f"⚠️ [STEP 5.ERR] Stripe Error: {str(se)}")
+                    print(f"[STEP 5.ERR] Stripe Error: {str(se)}")
 
             client_res = await self.db.execute(select(Client).where(Client.id == invoice.client_id))
             client = client_res.scalars().first()
-            print(f"🤝 [STEP 6] Client loaded: {client.name if client else 'N/A'}")
+            print(f"[STEP 6] Client loaded: {client.name if client else 'N/A'}")
             
             target_email = None
             if payload and hasattr(payload, 'to_email'):
@@ -104,10 +104,10 @@ class InvoiceService:
                 target_email = client.email if client else None
             
             if not target_email:
-                print(f"❌ [STEP 6.ERR] No target email found")
+                print(f"[STEP 6.ERR] No target email found")
                 raise HTTPException(status_code=400, detail="Recipient email is required")
 
-            print(f"📄 [STEP 7] Generating PDF...")
+            print(f"[STEP 7] Generating PDF...")
             inv_data = {
                 "invoice_number": invoice.invoice_number,
                 "issue_date": invoice.issue_date,
@@ -128,7 +128,7 @@ class InvoiceService:
                 }
             }
             pdf_bytes = PDFService.generate_invoice_pdf(inv_data, user)
-            print(f"📎 [STEP 8] PDF generated ({len(pdf_bytes)} bytes)")
+            print(f"[STEP 8] PDF generated ({len(pdf_bytes)} bytes)")
             
             attachments = [{
                 "filename": f"Invoice_{invoice.invoice_number}.pdf",
@@ -155,29 +155,31 @@ class InvoiceService:
             )
 
             email_svc = EmailService()
-            html = email_svc.get_invoice_html(safe_invoice, settings, payment_links)
-            print(f"📧 [STEP 9] Sending email to {target_email}...")
+            sender_email = user.email if user else None
+            html = email_svc.get_invoice_html(safe_invoice, settings, payment_links, sender_email=sender_email, sender_name=company_display_name)
+            print(f"[STEP 9] Sending email to {target_email}...")
             
             result, error_msg = email_svc.send_invoice_email(
                 to_email=target_email,
                 subject=subject,
                 html_content=html,
-                attachments=attachments
+                attachments=attachments,
+                reply_to=sender_email,
             )
             
             if result:
                 invoice.status = InvoiceStatus.SENT
                 await self.db.commit()
-                print(f"✅ [STEP 10] Email sent and status updated")
+                print(f"[STEP 10] Email sent and status updated")
                 return invoice
             else:
-                print(f"❌ [STEP 10.ERR] Resend failed: {error_msg}")
+                print(f"[STEP 10.ERR] Resend failed: {error_msg}")
                 raise HTTPException(status_code=500, detail=f"Email provider error: {error_msg}")
 
         except HTTPException:
             raise
         except Exception as e:
-            print(f"💥 [CRITICAL] Internal Error: {str(e)}")
+            print(f"[CRITICAL] Internal Error: {str(e)}")
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
@@ -199,6 +201,8 @@ class InvoiceService:
         query = select(Invoice).where(Invoice.user_id == self.user_id)
         if status_filter:
             query = query.where(Invoice.status == status_filter)
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
         result = await self.db.execute(query.offset((page-1)*page_size).limit(page_size))
         invoices = result.scalars().all()
-        return {"success": True, "data": invoices, "total": len(invoices), "page": page, "page_size": page_size}
+        return {"success": True, "data": invoices, "total": total, "page": page, "page_size": page_size, "total_pages": (total + page_size - 1) // page_size if total else 0}

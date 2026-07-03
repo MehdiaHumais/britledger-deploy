@@ -6,14 +6,23 @@ from app.core.config import settings
 
 from sqlalchemy.pool import NullPool
 
-engine = create_async_engine(
-    settings.SUPABASE_DATABASE_URL,
-    echo=settings.is_development,
-    connect_args={
+_is_sqlite = "sqlite" in settings.database_url
+
+if _is_sqlite:
+    connect_args = {"check_same_thread": False}
+    poolclass = None
+else:
+    connect_args = {
         "statement_cache_size": 0,
         "prepared_statement_cache_size": 0,
-    },
-    poolclass=NullPool,
+    }
+    poolclass = NullPool
+
+engine = create_async_engine(
+    settings.database_url,
+    echo=settings.is_development,
+    connect_args=connect_args,
+    poolclass=poolclass,
 )
 
 AsyncSessionLocal = sessionmaker(

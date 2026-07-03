@@ -33,6 +33,9 @@ export default function SettingsPage() {
     new: '',
     confirm: ''
   })
+  const [backupEmail, setBackupEmail] = useState('')
+  const [backupPassword, setBackupPassword] = useState('')
+  const [isSavingBackup, setIsSavingBackup] = useState(false)
   
   const [emailNotifs, setEmailNotifs] = useState(true)
   const [aiNotifs, setAiNotifs] = useState(true)
@@ -144,16 +147,14 @@ export default function SettingsPage() {
   const handleSaveBusiness = () => {
     if (!user) return
     setIsSavingBusiness(true)
-    setTimeout(() => {
-      db.users.update(user.id, { 
-        company_name: business.companyName,
-        vat_number: business.vatNumber,
-        address: business.address
-      })
-      setUser({ ...user, company_name: business.companyName, vat_number: business.vatNumber, address: business.address } as any)
-      success('Business Info Updated', 'Your business details have been saved.')
-      setIsSavingBusiness(false)
-    }, 700)
+    db.users.update(user.id, { 
+      company_name: business.companyName,
+      vat_number: business.vatNumber,
+      address: business.address
+    })
+    setUser({ ...user, company_name: business.companyName, vat_number: business.vatNumber, address: business.address } as any)
+    setIsSavingBusiness(false)
+    success('Business Info Updated', 'Your business details have been saved.')
   }
 
   const handleSavePassword = () => {
@@ -177,12 +178,10 @@ export default function SettingsPage() {
     }
     
     setIsSavingPassword(true)
-    setTimeout(() => {
-      db.users.update(user.id, { password: passwords.new })
-      setPasswords({ current: '', new: '', confirm: '' })
-      success('Password Changed', 'Your password has been updated successfully.')
-      setIsSavingPassword(false)
-    }, 800)
+    db.users.update(user.id, { password: passwords.new })
+    setPasswords({ current: '', new: '', confirm: '' })
+    setIsSavingPassword(false)
+    success('Password Changed', 'Your password has been updated successfully.')
   }
 
   const handleToggleEmailNotifs = () => {
@@ -289,7 +288,7 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="profile">
-            <Card className="border-none shadow-md">
+            <Card className="border-none shadow-md overflow-hidden">
               <CardHeader>
                 <CardTitle>User Profile</CardTitle>
                 <CardDescription>Your personal information and avatar.</CardDescription>
@@ -333,7 +332,7 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="business">
-            <Card className="border-none shadow-md">
+            <Card className="border-none shadow-md overflow-hidden">
               <CardHeader>
                 <CardTitle>Business Details</CardTitle>
                 <CardDescription>Information used for your invoices and tax returns.</CardDescription>
@@ -373,7 +372,7 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="security">
-            <Card className="border-none shadow-md">
+            <Card className="border-none shadow-md overflow-hidden">
               <CardHeader>
                 <CardTitle>Security</CardTitle>
                 <CardDescription>Update your password and secure your account.</CardDescription>
@@ -414,12 +413,65 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground mb-4">Add an extra layer of security to your account.</p>
                   <Button variant="secondary" onClick={() => info('Coming Soon', '2FA setup will be available in v1.1. Your account is secured via Local Storage.')}>Enable 2FA</Button>
                 </div>
+
+                {user?.is_fingerprint && (
+                  <div className="pt-6 border-t">
+                    <h4 className="text-sm font-bold mb-2">Add Credentials (Backup)</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Your account uses fingerprint authentication. Add an email and password as backup in case you lose your device.
+                    </p>
+                    <div className="space-y-4 max-w-md">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Backup Email</label>
+                        <Input
+                          type="email"
+                          placeholder="your@email.com"
+                          value={backupEmail}
+                          onChange={(e) => setBackupEmail(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Backup Password</label>
+                        <Input
+                          type="password"
+                          placeholder="Min 8 characters"
+                          value={backupPassword}
+                          onChange={(e) => setBackupPassword(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        onClick={async () => {
+                          if (!backupEmail || !backupPassword) {
+                            warning('Missing Fields', 'Please enter both email and password.')
+                            return
+                          }
+                          if (backupPassword.length < 8) {
+                            warning('Weak Password', 'Password must be at least 8 characters.')
+                            return
+                          }
+                          setIsSavingBackup(true)
+                          if (user) {
+                            db.users.update(user.id, { email: backupEmail, password: backupPassword, is_fingerprint: false })
+                            setUser({ ...user, email: backupEmail, is_fingerprint: false })
+                          }
+                          setBackupEmail('')
+                          setBackupPassword('')
+                          setIsSavingBackup(false)
+                          success('Credentials Added', 'You can now log in with email or fingerprint.')
+                        }}
+                        disabled={isSavingBackup}
+                      >
+                        {isSavingBackup ? <><Loader2 size={16} className="animate-spin mr-2" />Saving...</> : 'Save Backup Credentials'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="notifications">
-            <Card className="border-none shadow-md">
+            <Card className="border-none shadow-md overflow-hidden">
               <CardHeader>
                 <CardTitle>Notifications</CardTitle>
                 <CardDescription>Configure how you want to be alerted.</CardDescription>

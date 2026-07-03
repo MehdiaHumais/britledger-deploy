@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { memo, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   LayoutDashboard, 
@@ -41,21 +41,70 @@ interface SidebarProps {
   setIsMobileOpen: (value: boolean) => void
 }
 
-export function Sidebar({ 
+const NavItem = memo(function NavItem({ 
+  item, isActive, isCollapsed, onClick 
+}: { 
+  item: typeof navItems[0], isActive: boolean, isCollapsed: boolean, onClick: () => void 
+}) {
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group relative overflow-hidden",
+        isActive 
+          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
+          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+      )}
+      onClick={onClick}
+    >
+      <item.icon size={20} className={cn(
+        "shrink-0 transition-transform duration-200 group-hover:scale-110",
+        isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary"
+      )} />
+      {!isCollapsed && (
+        <span className="truncate">{item.name}</span>
+      )}
+    </Link>
+  )
+})
+
+export const Sidebar = memo(function Sidebar({ 
   isCollapsed, 
   setIsCollapsed, 
   isMobileOpen, 
   setIsMobileOpen 
 }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, logout } = useAuthStore()
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileSidebar = () => setIsMobileOpen(!isMobileOpen)
 
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [isMobileOpen])
+
+  const navLinks = useMemo(() => navItems.map((item) => {
+    const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+    return (
+      <NavItem
+        key={item.name}
+        item={item}
+        isActive={isActive}
+        isCollapsed={isCollapsed}
+        onClick={() => setIsMobileOpen(false)}
+      />
+    )
+  }), [pathname, isCollapsed, setIsMobileOpen])
+
   return (
     <>
-      {/* Mobile Menu Button */}
       <div className="fixed top-4 left-4 z-[60] lg:hidden">
         <Button 
           variant="outline" 
@@ -67,48 +116,40 @@ export function Sidebar({
         </Button>
       </div>
 
-      {/* Overlay for mobile */}
       <AnimatePresence>
         {isMobileOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             onClick={() => setIsMobileOpen(false)}
             className="fixed inset-0 z-40 bg-background/60 backdrop-blur-md lg:hidden"
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar Container */}
       <motion.aside
         initial={false}
-        animate={{ 
-          width: isCollapsed ? '80px' : '260px',
-          x: isMobileOpen ? 0 : (typeof window !== 'undefined' && window.innerWidth < 1024 ? -280 : 0)
-        }}
-        transition={{ type: 'spring', stiffness: 400, damping: 40 }}
+        animate={{ width: isCollapsed ? '80px' : '260px' }}
+        transition={{ type: 'spring', stiffness: 400, damping: 40, mass: 0.5 }}
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-screen flex-col border-r bg-card/95 backdrop-blur-sm shadow-xl transition-colors duration-300",
-          "lg:translate-x-0"
+          "fixed left-0 top-0 z-50 flex h-screen flex-col border-r bg-card/95 backdrop-blur-sm shadow-xl",
+          "transition-transform duration-300 ease-in-out",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Logo Section */}
         <div className="flex h-16 items-center justify-between px-6 py-4">
           {!isCollapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center gap-2 font-bold text-xl text-primary"
-            >
+            <div className="flex items-center gap-2 font-bold text-xl text-primary">
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
                 B
               </div>
               <span>BritLedger <span className="text-foreground">AI</span></span>
-            </motion.div>
+            </div>
           )}
           {isCollapsed && (
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-lg shadow-primary/20">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-lg shadow-primary/20 mx-auto">
               B
             </div>
           )}
@@ -122,49 +163,10 @@ export function Sidebar({
           </Button>
         </div>
 
-        {/* Navigation Links */}
         <nav className="flex-1 space-y-1.5 px-3 py-6 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group relative overflow-hidden",
-                  isActive 
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
-                onClick={() => setIsMobileOpen(false)}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="activeNav"
-                    className="absolute inset-0 bg-primary -z-10"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <item.icon size={20} className={cn(
-                  "shrink-0 transition-transform duration-200 group-hover:scale-110",
-                  isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary"
-                )} />
-                {!isCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="truncate"
-                  >
-                    {item.name}
-                  </motion.span>
-                )}
-              </Link>
-            )
-          })}
+          {navLinks}
         </nav>
 
-        {/* User Section / Bottom */}
         <div className="mt-auto border-t border-border/50 p-4">
           <div className={cn(
             "flex items-center gap-3 rounded-xl p-2 transition-colors",
@@ -192,7 +194,7 @@ export function Sidebar({
                 "w-full justify-start gap-3 text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl transition-all",
                 isCollapsed && "justify-center px-0"
               )}
-              onClick={logout}
+              onClick={() => { logout(); router.push('/login') }}
             >
               <LogOut size={20} />
               {!isCollapsed && <span className="font-medium">Logout</span>}
@@ -202,4 +204,4 @@ export function Sidebar({
       </motion.aside>
     </>
   )
-}
+})

@@ -11,6 +11,7 @@ interface User {
   address?: string
   email_notifications?: boolean
   ai_notifications?: boolean
+  is_fingerprint?: boolean
 }
 
 interface AuthState {
@@ -22,6 +23,17 @@ interface AuthState {
   logout: () => void
 }
 
+function clearLocalDbData(): void {
+  if (typeof window === 'undefined') return
+  const keys = Object.keys(localStorage)
+  const keep = new Set(['britledger-auth-storage', 'britledger_users'])
+  for (const key of keys) {
+    if (key.startsWith('britledger_') && !keep.has(key)) {
+      localStorage.removeItem(key)
+    }
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -30,7 +42,10 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setToken: (token) => set({ token }),
-      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      logout: () => {
+        clearLocalDbData()
+        set({ user: null, token: null, isAuthenticated: false })
+      },
     }),
     {
       name: 'britledger-auth-storage',

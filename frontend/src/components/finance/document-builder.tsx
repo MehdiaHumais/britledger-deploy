@@ -123,25 +123,17 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
 
     setIsSending(true)
     try {
-      // 1. Ensure Client exists in Backend
-      let backendId = initialData?.id
       const { invoiceApi, quotationApi, clientApi } = await import('@/lib/api')
       const api = type === 'invoice' ? invoiceApi : quotationApi
 
-      // Check if client is a backend client or only local
-      // Local IDs usually don't have the typical backend format or we can just try to fetch/upsert
+      // 1. Ensure Client exists in Backend
       let clientBackendId = selectedClientId
-      
       try {
-        // Try to fetch client from backend to see if it exists
         await clientApi.get(selectedClientId)
       } catch (clientErr) {
-        // If not found, create it in the backend now
-        console.log("Client not found in backend, syncing now...")
         const c = clients.find(c => c.id === selectedClientId)
         if (c) {
           const createRes = await clientApi.create({
-            id: c.id, // Try to preserve the ID if possible
             name: c.name,
             email: c.email,
             address: c.address,
@@ -151,9 +143,9 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
         }
       }
 
-      // 2. We must use the Backend API to send real documents
-      // If we don't have a backend ID, we create it now
-      if (!backendId || backendId.length < 10) {
+      // 2. Sync document to backend if not already synced
+      let backendId = initialData?.backendId
+      if (!backendId) {
          const saveRes = await api.create({
             client_id: clientBackendId,
             [type === 'invoice' ? 'invoice_number' : 'quotation_number']: documentNumber,
@@ -182,8 +174,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
 
       if (response.data.success || response.status === 200) {
         success('Email Sent', `Professional ${type} sent to ${email}.`)
-        // Also save locally to mark it as sent
-        onSave({ documentNumber, clientName, clientId: selectedClientId, items, total, subtotal, totalTax, discount, notes, date, dueDate, status: 'Sent' })
+        onSave({ documentNumber, clientName, clientId: selectedClientId, items, total, subtotal, totalTax, discount, notes, date, dueDate, status: 'Sent', backendId })
       } else {
         setFormError(`Failed to send email via backend.`)
       }
@@ -315,7 +306,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
+      <div className="lg:col-span-2 space-y-6 min-w-0">
         <Card className="border-none shadow-md">
           <CardHeader>
             <CardTitle>{type === 'invoice' ? 'Invoice Details' : 'Quotation Details'}</CardTitle>
@@ -401,8 +392,8 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
                 </Button>
               </div>
 
-              <div className="overflow-x-auto -mx-6 px-6">
-                <Table>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[200px]">Description <span className="text-rose-500">*</span></TableHead>
@@ -470,7 +461,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
 
       {/* Summary sidebar */}
       <div className="space-y-6">
-        <Card className="border-none shadow-md bg-slate-50 dark:bg-slate-900 sticky top-4">
+        <Card className="border-none shadow-md bg-slate-50 dark:bg-slate-900 lg:sticky lg:top-4">
           <CardHeader>
             <CardTitle>Summary</CardTitle>
           </CardHeader>
@@ -499,7 +490,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
                 type="number" 
                 min="0" 
                 step="0.01"
-                className="w-24 h-8 text-right" 
+                className="w-20 sm:w-24 h-8 text-right" 
                 value={discount} 
                 onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} 
               />

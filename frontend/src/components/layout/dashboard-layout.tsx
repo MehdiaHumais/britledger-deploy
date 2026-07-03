@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './sidebar'
 import { AuthGuard } from '@/components/auth/auth-guard'
@@ -12,9 +12,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const themeInitialized = useRef(false)
 
   useEffect(() => {
-    // Check local storage or system preference
+    if (themeInitialized.current) return
+    themeInitialized.current = true
     const savedTheme = localStorage.getItem('theme')
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     
@@ -27,7 +29,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     if (isDark) {
       document.documentElement.classList.remove('dark')
       localStorage.setItem('theme', 'light')
@@ -37,11 +39,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       localStorage.setItem('theme', 'dark')
       setIsDark(true)
     }
-  }
+  }, [isDark])
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen bg-background text-foreground transition-colors duration-300">
+      <div className="flex min-h-screen w-full bg-background text-foreground">
         <Sidebar 
           isCollapsed={isCollapsed} 
           setIsCollapsed={setIsCollapsed}
@@ -49,7 +51,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           setIsMobileOpen={setIsMobileOpen}
         />
         
-        {/* Global Theme Toggle & Notifications */}
         <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
           <NotificationBell />
           <Button variant="outline" size="icon" onClick={toggleTheme} className="rounded-full bg-background shadow-sm border-primary/20">
@@ -59,11 +60,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
         <main 
           className={cn(
-            "flex-1 transition-all duration-300 ease-in-out",
+            "flex-1 min-w-0 w-full overflow-x-hidden",
             isCollapsed ? "lg:pl-[80px]" : "lg:pl-[260px]"
           )}
         >
-          <div className="container mx-auto p-4 md:p-8 pt-20 lg:pt-8 max-w-7xl">
+          <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-8 pt-20 lg:pt-8 pb-8">
             {children}
           </div>
         </main>

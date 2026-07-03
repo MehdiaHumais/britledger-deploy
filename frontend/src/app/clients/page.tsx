@@ -50,37 +50,31 @@ export default function ClientsPage() {
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-    setTimeout(() => {
-      db.clients.insert({ ...newClient, balance: 0, status: 'Active', invoices: 0 })
-      setNewClient({ name: '', email: '', phone: '' })
-      setIsAddOpen(false)
-      load()
-      setIsSaving(false)
-    }, 600)
+    db.clients.insert({ ...newClient, balance: 0, status: 'Active', invoices: 0 })
+    setNewClient({ name: '', email: '', phone: '' })
+    setIsAddOpen(false)
+    load()
+    setIsSaving(false)
   }
 
   const handleEdit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editClient) return
     setIsEditing(true)
-    setTimeout(() => {
-      db.clients.update(editClient.id, { name: editClient.name, email: editClient.email, phone: editClient.phone })
-      setIsEditOpen(false)
-      load()
-      setIsEditing(false)
-    }, 600)
+    db.clients.update(editClient.id, { name: editClient.name, email: editClient.email, phone: editClient.phone })
+    setIsEditOpen(false)
+    load()
+    setIsEditing(false)
   }
 
   const handleDeactivate = () => {
     if (!deactivateClient) return
     setIsDeactivating(true)
-    setTimeout(() => {
-      const newStatus = deactivateClient.status === 'Active' ? 'Inactive' : 'Active'
-      db.clients.update(deactivateClient.id, { status: newStatus })
-      setIsDeactivateOpen(false)
-      load()
-      setIsDeactivating(false)
-    }, 600)
+    const newStatus = deactivateClient.status === 'Active' ? 'Inactive' : 'Active'
+    db.clients.update(deactivateClient.id, { status: newStatus })
+    setIsDeactivateOpen(false)
+    load()
+    setIsDeactivating(false)
   }
 
   const openView = (c: Client) => { router.push(`/clients/detail?id=${c.id}`) }

@@ -76,17 +76,15 @@ export default function VATPage() {
 
   const handleFileReturn = () => {
     setIsFiling(true)
-    setTimeout(() => {
-      db.vat_returns.insert({
-        period: quarterLabel,
-        amount: netVat,
-        status: 'Filed Successfully',
-        date: new Date().toISOString()
-      })
-      loadData()
-      setIsFiling(false)
-      success('VAT Return Filed', `${quarterLabel} return has been submitted to the HMRC Gateway.`)
-    }, 1500)
+    db.vat_returns.insert({
+      period: quarterLabel,
+      amount: netVat,
+      status: 'Filed Successfully',
+      date: new Date().toISOString()
+    })
+    loadData()
+    setIsFiling(false)
+    success('VAT Return Filed', `${quarterLabel} return has been submitted to the HMRC Gateway.`)
   }
 
   return (
@@ -105,10 +103,10 @@ export default function VATPage() {
             <Loader2 size={20} className="animate-spin" /> Calculating VAT from your records...
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-4 w-full">
             <div className="col-span-full md:col-span-3 space-y-6">
               {/* VAT Return Card */}
-              <Card className="border-none shadow-md overflow-hidden">
+              <Card className="border-none shadow-md overflow-hidden w-full">
                 <div className="bg-primary/5 p-6 border-b">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
@@ -130,61 +128,58 @@ export default function VATPage() {
                   </div>
                 </div>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
+                    <Table className="w-full">
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-[70px]">Box</TableHead>
-                          <TableHead className="min-w-[200px]">Description</TableHead>
-                          <TableHead className="text-right min-w-[100px]">Amount</TableHead>
+                          <TableHead className="min-w-[120px] sm:min-w-[200px]">Description</TableHead>
+                          <TableHead className="text-right min-w-[90px]">Amount</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {vatBoxes.map((row) => (
                           <TableRow key={row.box} className={row.highlight ? 'bg-primary/5' : ''}>
                             <TableCell className="font-bold">{row.box}</TableCell>
-                            <TableCell className={row.bold ? 'font-semibold' : ''}>{row.label}</TableCell>
-                            <TableCell className={`text-right ${row.bold ? 'font-bold' : ''} ${row.highlight ? 'text-primary' : ''}`}>
+                            <TableCell className={`${row.bold ? 'font-semibold' : ''} break-words`}>{row.label}</TableCell>
+                            <TableCell className={`text-right whitespace-nowrap ${row.bold ? 'font-bold' : ''} ${row.highlight ? 'text-primary' : ''}`}>
                               {formatCurrency(row.amount)}
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
-                  </div>
                 </CardContent>
               </Card>
 
               {/* Previous Returns */}
-              <Card className="border-none shadow-md overflow-hidden">
+              <Card className="border-none shadow-md overflow-hidden w-full">
                 <CardHeader>
                   <CardTitle>Previous Returns</CardTitle>
                   <CardDescription>History of filed VAT returns</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0 sm:p-6">
-                  <div className="overflow-x-auto">
-                    <Table>
+                    <Table className="w-full">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="min-w-[120px]">Period</TableHead>
-                          <TableHead className="min-w-[120px]">Filed Date</TableHead>
-                          <TableHead className="min-w-[100px]">Amount</TableHead>
-                          <TableHead className="min-w-[120px]">Status</TableHead>
-                          <TableHead className="text-right min-w-[120px]">Receipt</TableHead>
+                          <TableHead className="min-w-[90px]">Period</TableHead>
+                          <TableHead className="min-w-[100px] hidden sm:table-cell">Filed Date</TableHead>
+                          <TableHead className="min-w-[90px]">Amount</TableHead>
+                          <TableHead className="min-w-[80px]">Status</TableHead>
+                          <TableHead className="text-right min-w-[80px]">Receipt</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {returns.length > 0 ? returns.map(r => (
                           <TableRow key={r.id}>
-                            <TableCell className="font-medium">{r.period}</TableCell>
-                            <TableCell>{new Date(r.date).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-semibold text-primary">{formatCurrency(r.amount)}</TableCell>
-                            <TableCell><Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none">{r.status}</Badge></TableCell>
+                            <TableCell className="font-medium break-words">{r.period}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{new Date(r.date).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-semibold text-primary whitespace-nowrap">{formatCurrency(r.amount)}</TableCell>
+                            <TableCell><Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none text-[11px] whitespace-nowrap">{r.status}</Badge></TableCell>
                             <TableCell className="text-right">
                               <Button 
                                 variant="ghost" 
                                 size="sm"
-                                className="gap-1.5"
+                                className="gap-1.5 h-8 px-2"
                                 onClick={() => {
                                   const previewWindow = window.open('', '_blank')
                                   if (!previewWindow) {
@@ -381,13 +376,12 @@ export default function VATPage() {
                         )}
                       </TableBody>
                     </Table>
-                  </div>
                 </CardContent>
               </Card>
             </div>
 
             {/* Sidebar */}
-            <div className="col-span-full md:col-span-1 space-y-6">
+            <div className="col-span-full lg:col-span-1 space-y-6">
               {netVat > 0 && (
                 <Card className="border-none shadow-sm bg-amber-50 dark:bg-amber-950/20">
                   <CardContent className="p-6">

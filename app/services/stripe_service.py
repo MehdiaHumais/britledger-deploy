@@ -39,7 +39,7 @@ class StripeService:
             try:
                 amount_cents = int(float(raw_amount) * 100)
             except (ValueError, TypeError, AttributeError):
-                print(f"⚠️ Invalid amount for Stripe: {raw_amount}")
+                print(f"[STRIPE_WARN] Invalid amount for Stripe: {raw_amount}")
                 return None
 
             session = stripe.checkout.Session.create(
@@ -66,7 +66,7 @@ class StripeService:
             )
             return session
         except Exception as e:
-            print(f"❌ Stripe Error: {str(e)}")
+            print(f"[STRIPE_ERROR] Stripe Error: {str(e)}")
             return None
 
     def verify_webhook(self, payload: str, sig_header: str) -> Optional[stripe.Event]:

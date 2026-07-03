@@ -48,9 +48,21 @@ class UserUpdate(UserBase):
     password: Optional[str] = None
 
 
+class FingerprintRegisterRequest(BaseModel):
+    device_id: str
+    name: str
+
+class FingerprintLoginRequest(BaseModel):
+    device_id: str
+
+class FingerprintUpgradeRequest(BaseModel):
+    email: EmailStr
+    password: str
+
 class User(UserBase):
     id: str
     is_active: bool
+    is_fingerprint: bool = False
     created_at: datetime
     updated_at: datetime
 

@@ -172,7 +172,7 @@ class AIService:
                 max_tokens=800,
             )
             raw = response.choices[0].message.content
-            print(f"🤖 Raw AI Response: {raw}") # Log to terminal to see what's happening
+            print(f"[AI_DEBUG] Raw AI Response: {raw}")
 
             # Robust JSON extraction for older models
             try:
@@ -189,7 +189,7 @@ class AIService:
             return {"success": True, "data": result}
 
         except Exception as e:
-            print(f"❌ OpenAI API Error: {str(e)}")  # Print to terminal for visibility
+            print(f"[OPENAI_ERROR] OpenAI API Error: {str(e)}")  # Print to terminal for visibility
             logger.error("ai_insights_error", error=str(e))
             return {"success": False, "error": f"OpenAI Error: {str(e)}"}
 
@@ -218,5 +218,17 @@ class AIService:
             return {"success": False, "error": str(e)}
 
 
-# ── Singleton ──────────────────────────────────────────────────────────────
-ai_service = AIService()
+# ── Lazy Singleton ─────────────────────────────────────────────────────────
+class _AIServiceProxy:
+    _instance: Optional[AIService] = None
+
+    def __getattr__(self, name):
+        if self._instance is None:
+            try:
+                self._instance = AIService()
+            except Exception as e:
+                logger.warning("ai_service_unavailable", error=str(e))
+                raise RuntimeError(f"AI service unavailable: {e}")
+        return getattr(self._instance, name)
+
+ai_service = _AIServiceProxy()

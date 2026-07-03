@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 export const metadata: Metadata = {
   title: 'BritLedger AI - Modern Bookkeeping & Invoicing',
   description: 'AI-powered bookkeeping and invoicing for modern businesses.',
+  icons: { icon: '/icon.png' },
 }
 
 export default function RootLayout({
@@ -17,6 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/icon.png" type="image/png" />
+      </head>
       <body className={`${inter.variable} font-sans`} suppressHydrationWarning>
         <ToastProvider>
           {children}

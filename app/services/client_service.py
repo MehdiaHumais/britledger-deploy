@@ -57,7 +57,7 @@ class ClientService:
         # Count total
         from sqlalchemy import func
         count_query = select(func.count()).select_from(query.subquery())
-        total = (await self.db.execute(count_query)).scalar()
+        total = (await self.db.execute(count_query)).scalar() or 0
         
         # Paginate
         query = query.offset((page - 1) * page_size).limit(page_size)
@@ -70,5 +70,5 @@ class ClientService:
             "total": total,
             "page": page,
             "page_size": page_size,
-            "total_pages": (total + page_size - 1) // page_size
+            "total_pages": (total + page_size - 1) // page_size if total else 0
         }

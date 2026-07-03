@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Bell, Check, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import db from '@/lib/local-db'
@@ -23,25 +23,25 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [selectedAiInsight, setSelectedAiInsight] = useState<any>(null)
   const [showAiModal, setShowAiModal] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Fetch and check for overdue items
-  const checkNotifications = () => {
+  const loadNotifs = () => {
+    const allNotifs = db.notifications.getAll('date', false)
+    setNotifications(allNotifs)
+  }
+
+  const checkOverdue = () => {
     if (!user) return
-    
-    // Auto-generate overdue notifications if needed
     const invoices = db.invoices.getAll()
     const quotations = db.quotations.getAll()
     const expenses = db.expenses.getAll()
-    
     const today = new Date()
-    
-    const checkOverdue = (items: any[], type: string, actionText: string) => {
+
+    const markOverdue = (items: any[], type: string, actionText: string, updateStatus: string) => {
       items.forEach(item => {
         if (item.status === 'Paid' || item.status === 'Accepted' || item.status === 'Paid (Expense)') return
-        
         const dueDate = new Date(item.dueDate || item.date)
-        if (dueDate < today && item.status !== 'Overdue') {
-          // Check if notification already exists
+        if (dueDate < today && item.status !== 'Overdue' && item.status !== 'Expired') {
           const existing = db.notifications.findOne((n: any) => n.referenceId === item.id)
           if (!existing) {
             db.notifications.insert({
@@ -51,28 +51,31 @@ export function NotificationBell() {
               isRead: false,
               date: new Date().toISOString()
             })
-            // Update item status to Overdue in local DB
-            if (type === 'Invoice') db.invoices.update(item.id, { status: 'Overdue' })
-            if (type === 'Quotation') db.quotations.update(item.id, { status: 'Expired' })
           }
+          if (type === 'Invoice') db.invoices.update(item.id, { status: updateStatus })
+          if (type === 'Quotation') db.quotations.update(item.id, { status: updateStatus })
         }
       })
     }
 
-    checkOverdue(invoices, 'Invoice', 'The client has not paid this invoice yet.')
-    checkOverdue(quotations, 'Quotation', 'The client has not accepted this quotation.')
-    checkOverdue(expenses, 'Expense', 'This expense is past its payment date.')
-
-    // Load notifications from DB
-    const allNotifs = db.notifications.getAll('date', false)
-    setNotifications(allNotifs)
+    markOverdue(invoices, 'Invoice', 'The client has not paid this invoice yet.', 'Overdue')
+    markOverdue(quotations, 'Quotation', 'The client has not accepted this quotation.', 'Expired')
+    markOverdue(expenses, 'Expense', 'This expense is past its payment date.', 'Overdue')
   }
 
   useEffect(() => {
-    checkNotifications()
-    // Poll every 30 seconds
-    const interval = setInterval(checkNotifications, 30000)
-    return () => clearInterval(interval)
+    checkOverdue()
+    loadNotifs()
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = setInterval(() => { checkOverdue(); loadNotifs() }, 30000)
+    const onVisibility = () => {
+      if (!document.hidden) { checkOverdue(); loadNotifs() }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [user])
 
   const unreadCount = notifications.filter(n => !n.isRead).length

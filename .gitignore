@@ -80,3 +80,7 @@ frontend/android/
 # ============================================================
 .DS_Store
 Thumbs.db
+*.db
+package-lock.json
+node_modules/
+scripts/

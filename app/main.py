@@ -5,6 +5,7 @@ BritLedger AI — Main FastAPI Application Entry Point
 from __future__ import annotations
 
 import time
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -49,15 +50,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     """Startup and shutdown logic."""
     logger.info("britledger_startup", version=settings.APP_VERSION, env=settings.APP_ENV)
 
-    # Test Redis connection
+    # Test Redis connection (with timeout to avoid hanging)
     try:
         redis = await get_redis()
-        await redis.ping()
+        await asyncio.wait_for(redis.ping(), timeout=3.0)
         logger.info("redis_connected")
     except Exception as e:
         logger.warning("redis_unavailable", error=str(e))
 
-    # Run DB migrations (optional: call alembic upgrade head here)
+    # Create tables for SQLite dev (no-op for production)
+    try:
+        from app.core.database import engine, Base
+        import app.models  # noqa: ensure all models are registered with Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_tables_ready")
+    except Exception as e:
+        logger.warning("database_tables_error", error=str(e))
+
     yield
 
     logger.info("britledger_shutdown")
@@ -91,19 +101,28 @@ def create_app() -> FastAPI:
         response.headers["X-Frame-Options"] = "DENY"
         return response
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            "http://192.168.150.67:3000",
-            "http://localhost:8000",
-            "http://127.0.0.1:8000"
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    if settings.is_development:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    else:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:8001",
+                "http://127.0.0.1:8001",
+                str(settings.FRONTEND_URL),
+            ],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # ── Rate limiter state ────────────────────────────────
     app.state.limiter = limiter
@@ -156,6 +175,7 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"success": False, "message": detail},
+            headers={"Access-Control-Allow-Origin": "*"} if settings.is_development else {},
         )
 
     # ── Health & Root Endpoints ───────────────────────────
