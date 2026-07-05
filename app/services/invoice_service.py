@@ -135,11 +135,7 @@ class InvoiceService:
                 "content": base64.b64encode(pdf_bytes).decode('utf-8')
             }]
 
-            company_display_name = "BritLedger AI"
-            if settings and settings.account_name:
-                company_display_name = settings.account_name
-            elif user and user.full_name:
-                company_display_name = user.full_name
+            company_display_name = user.full_name if user and user.full_name else (settings.account_name if settings and settings.account_name else "BritLedger AI")
                 
             subject = getattr(payload, 'subject', None) or f"Invoice {invoice.invoice_number} from {company_display_name}"
             

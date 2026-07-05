@@ -153,11 +153,7 @@ class QuotationService:
                 items=quotation.items
             )
 
-            company_display_name = "BritLedger AI"
-            if settings and settings.account_name:
-                company_display_name = settings.account_name
-            elif user and user.full_name:
-                company_display_name = user.full_name
+            company_display_name = user.full_name if user and user.full_name else (settings.account_name if settings and settings.account_name else "BritLedger AI")
 
             sender_email = user.email if user else None
             email_content = email_svc.get_quotation_html(safe_quotation, settings, payment_links, sender_email=sender_email, sender_name=company_display_name)
