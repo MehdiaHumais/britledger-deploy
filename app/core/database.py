@@ -11,14 +11,15 @@ _is_sqlite = "sqlite" in settings.database_url
 if _is_sqlite:
     connect_args = {"check_same_thread": False}
     poolclass = None
+    db_url = settings.database_url
 else:
-    connect_args = {
-        "statement_cache_size": 0,
-    }
+    connect_args = {}
     poolclass = NullPool
+    sep = "&" if "?" in settings.database_url else "?"
+    db_url = f"{settings.database_url}{sep}statement_cache_size=0"
 
 engine = create_async_engine(
-    settings.database_url,
+    db_url,
     echo=settings.is_development,
     connect_args=connect_args,
     poolclass=poolclass,
