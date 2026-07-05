@@ -69,6 +69,7 @@ frontend/node_modules/
 frontend/.next/
 frontend/out/
 frontend/.turbo/
+*.tsbuildinfo
 
 # ============================================================
 # Frontend - Capacitor Android (large, regeneratable with `npx cap add android`)
