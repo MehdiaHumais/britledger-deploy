@@ -39,17 +39,6 @@ class Settings(BaseSettings):
         if not supabase_url:
             db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "britledger_dev.db")
             return f"sqlite+aiosqlite:///{db_path}"
-        # Convert pooler URL (port 6543) to direct connection (port 5432) to avoid PgBouncer prepared-statement issues
-        import re
-        match = re.search(r'@(.+?)\.pooler\.supabase\.com:6543', supabase_url)
-        if match:
-            project_ref = match.group(1)
-            direct_url = supabase_url.replace(
-                f"@{match.group(1)}.pooler.supabase.com:6543",
-                f"@db.{project_ref}.supabase.co:5432"
-            )
-            print(f"[DB] Using direct connection (bypassing PgBouncer)")
-            return direct_url
         return supabase_url
 
     @property
