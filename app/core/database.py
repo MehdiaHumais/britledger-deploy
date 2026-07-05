@@ -14,7 +14,6 @@ if _is_sqlite:
 else:
     connect_args = {
         "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0,
     }
     poolclass = NullPool
 
