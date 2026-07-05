@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus, Search, MoreHorizontal, Mail, Phone, ExternalLink, Edit2, Trash2, Loader2, FileText } from 'lucide-react'
+import { Plus, MoreHorizontal, Edit2, Loader2, FileText } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '../../components/ui/toast'
 import { formatCurrency, formatDate } from '@/lib/utils'

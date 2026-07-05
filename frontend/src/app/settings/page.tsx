@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { User, Building, Shield, Bell, Palette, Loader2, CreditCard } from 'lucide-react'
+import { User, Building, Shield, Bell, Loader2, CreditCard } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { useToast } from '@/components/ui/toast'
 import db from '@/lib/local-db'

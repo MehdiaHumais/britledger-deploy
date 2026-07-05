@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, Suspense } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, CreditCard, CircleDollarSign, CheckCircle2, AlertCircle } from 'lucide-react'
