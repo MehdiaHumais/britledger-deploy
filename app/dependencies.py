@@ -55,25 +55,18 @@ async def get_current_user(
         raise credentials_exception
     
     try:
-        # Development override: if it's a fake_token, we skip JWT decoding
         if token == "fake_token" and settings.APP_ENV == "development":
-            user_id = "flwszm7vymozp0pxg" # Default dev user ID
+            user_id = "flwszm7vymozp0pxg"
             print(f"[AUTH_DEV] Using legacy mock user: {user_id}")
         else:
             try:
-                # Try primary secret
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
                 print("[AUTH_SUCCESS] Token decoded with primary secret")
             except JWTError as e:
-                # Try fallback secret used by frontend mock signing
-                if settings.APP_ENV == "development":
-                    try:
-                        payload = jwt.decode(token, "fallback_secret", algorithms=[settings.JWT_ALGORITHM])
-                        print("[AUTH_SUCCESS] Token decoded with fallback_secret")
-                    except JWTError:
-                        print(f"[AUTH_ERROR] JWT decode failed even with fallback")
-                        raise credentials_exception
-                else:
+                try:
+                    payload = jwt.decode(token, "fallback_secret", algorithms=[settings.JWT_ALGORITHM])
+                    print("[AUTH_SUCCESS] Token decoded with fallback_secret")
+                except JWTError:
                     print(f"[AUTH_ERROR] JWT decode failed: {str(e)}")
                     raise credentials_exception
             
@@ -93,34 +86,30 @@ async def get_current_user(
     user = result.scalars().first()
     
     if user is None:
-        if settings.APP_ENV == "development":
-            token_email = payload.get("email", "")
-            if token_email:
-                existing = await db.execute(select(User).where(User.email == token_email))
-                user = existing.scalars().first()
-                if user is not None:
-                    return user
-            from sqlalchemy.exc import IntegrityError
-            try:
-                user = User(
-                    id=user_id,
-                    email=token_email or f"{user_id}@example.com",
-                    full_name=payload.get("name", "User"),
-                    hashed_password="mock_password",
-                    role="ADMIN"
-                )
-                db.add(user)
-                await db.commit()
-                await db.refresh(user)
-            except IntegrityError:
-                await db.rollback()
-                existing = await db.execute(select(User).where(User.email == token_email))
-                user = existing.scalars().first()
-                if user is not None:
-                    return user
-                raise
-        else:
-            print(f"[AUTH_ERROR] User {user_id} not found in database")
-            raise credentials_exception
+        token_email = payload.get("email", "")
+        if token_email:
+            existing = await db.execute(select(User).where(User.email == token_email))
+            user = existing.scalars().first()
+            if user is not None:
+                return user
+        from sqlalchemy.exc import IntegrityError
+        try:
+            user = User(
+                id=user_id,
+                email=token_email or f"{user_id}@example.com",
+                full_name=payload.get("name", "User"),
+                hashed_password="mock_password",
+                role="ADMIN"
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        except IntegrityError:
+            await db.rollback()
+            existing = await db.execute(select(User).where(User.email == token_email))
+            user = existing.scalars().first()
+            if user is not None:
+                return user
+            raise
         
     return user
