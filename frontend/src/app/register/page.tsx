@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuthStore } from '@/store/auth-store'
+import { useAuthStore, clearLocalDbData } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,6 +27,7 @@ export default function RegisterPage() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    clearLocalDbData()
     
     setTimeout(async () => {
       // Check if user already exists

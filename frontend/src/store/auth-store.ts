@@ -23,7 +23,7 @@ interface AuthState {
   logout: () => void
 }
 
-function clearLocalDbData(): void {
+export function clearLocalDbData(): void {
   if (typeof window === 'undefined') return
   const keys = Object.keys(localStorage)
   const keep = new Set(['britledger-auth-storage', 'britledger_users'])
