@@ -44,11 +44,7 @@ class Settings(BaseSettings):
     @property
     def SUPABASE_DATABASE_URL(self) -> str:
         """Async URL for FastAPI/asyncpg"""
-        url = self.SUPABASE_DATABASE_URL_RAW
-        separator = "&" if "?" in url else "?"
-        if "prepared_statement_cache_size" not in url and "statement_cache_size" not in url:
-            url = f"{url}{separator}prepared_statement_cache_size=0"
-        return url
+        return self.SUPABASE_DATABASE_URL_RAW
 
     @property
     def sync_database_url(self) -> str:
