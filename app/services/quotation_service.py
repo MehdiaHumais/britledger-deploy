@@ -13,6 +13,7 @@ from app.services.pdf_service import PDFService
 from app.schemas.quotation import QuotationCreate, QuotationUpdate
 from fastapi import HTTPException
 import os
+import asyncio
 import base64
 import traceback
 from types import SimpleNamespace
@@ -132,13 +133,14 @@ class QuotationService:
                     "address": client.address if client else ""
                 }
             }
-            pdf_bytes = PDFService.generate_quotation_pdf(quot_data, user)
+            pdf_bytes = await asyncio.to_thread(PDFService.generate_quotation_pdf, quot_data, user)
             print(f"[STEP 7] PDF generated ({len(pdf_bytes)} bytes)")
             
+            encoded = await asyncio.to_thread(base64.b64encode, pdf_bytes)
             attachments = [
                 {
                     "filename": f"Quotation_{quotation.quotation_number}.pdf",
-                    "content": base64.b64encode(pdf_bytes).decode('utf-8')
+                    "content": encoded.decode('utf-8')
                 }
             ]
 
@@ -159,12 +161,15 @@ class QuotationService:
             email_content = email_svc.get_quotation_html(safe_quotation, settings, payment_links, sender_email=sender_email, sender_name=company_display_name)
 
             print(f"[STEP 8] Sending email to {target_email}...")
-            result, error_msg = email_svc.send_invoice_email(
-                to_email=target_email,
-                subject=f"Quotation {quotation.quotation_number} from {company_display_name}",
-                html_content=email_content,
-                attachments=attachments,
-                reply_to=sender_email,
+            result, error_msg = await asyncio.wait_for(
+                asyncio.to_thread(email_svc.send_invoice_email,
+                    to_email=target_email,
+                    subject=f"Quotation {quotation.quotation_number} from {company_display_name}",
+                    html_content=email_content,
+                    attachments=attachments,
+                    reply_to=sender_email,
+                ),
+                timeout=30.0,
             )
             
             if result:

@@ -12,6 +12,7 @@ from app.services.pdf_service import PDFService
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
 from fastapi import HTTPException
 import os
+import asyncio
 import base64
 import traceback
 
@@ -127,12 +128,13 @@ class InvoiceService:
                     "address": client.address if client else ""
                 }
             }
-            pdf_bytes = PDFService.generate_invoice_pdf(inv_data, user)
+            pdf_bytes = await asyncio.to_thread(PDFService.generate_invoice_pdf, inv_data, user)
             print(f"[STEP 8] PDF generated ({len(pdf_bytes)} bytes)")
             
+            encoded = await asyncio.to_thread(base64.b64encode, pdf_bytes)
             attachments = [{
                 "filename": f"Invoice_{invoice.invoice_number}.pdf",
-                "content": base64.b64encode(pdf_bytes).decode('utf-8')
+                "content": encoded.decode('utf-8')
             }]
 
             company_display_name = user.full_name if user and user.full_name else (settings.account_name if settings and settings.account_name else "BritLedger AI")
@@ -147,7 +149,8 @@ class InvoiceService:
                 due_date=invoice.due_date,
                 currency=invoice.currency or "GBP",
                 total_amount=float(invoice.total_amount or 0),
-                notes=invoice.notes
+                notes=invoice.notes,
+                items=invoice.items
             )
 
             email_svc = EmailService()
@@ -155,12 +158,15 @@ class InvoiceService:
             html = email_svc.get_invoice_html(safe_invoice, settings, payment_links, sender_email=sender_email, sender_name=company_display_name)
             print(f"[STEP 9] Sending email to {target_email}...")
             
-            result, error_msg = email_svc.send_invoice_email(
-                to_email=target_email,
-                subject=subject,
-                html_content=html,
-                attachments=attachments,
-                reply_to=sender_email,
+            result, error_msg = await asyncio.wait_for(
+                asyncio.to_thread(email_svc.send_invoice_email,
+                    to_email=target_email,
+                    subject=subject,
+                    html_content=html,
+                    attachments=attachments,
+                    reply_to=sender_email,
+                ),
+                timeout=30.0,
             )
             
             if result:
