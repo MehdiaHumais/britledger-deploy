@@ -101,6 +101,14 @@ def create_app() -> FastAPI:
         response.headers["X-Frame-Options"] = "DENY"
         return response
 
+    allowed_origins = [
+        "https://ledger.britsyncai.com",
+        str(settings.FRONTEND_URL),
+        "capacitor://localhost",
+        "http://localhost",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
     if settings.is_development:
         app.add_middleware(
             CORSMiddleware,
@@ -112,10 +120,7 @@ def create_app() -> FastAPI:
     else:
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=[
-                "https://ledger.britsyncai.com",
-                str(settings.FRONTEND_URL),
-            ],
+            allow_origins=allowed_origins,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],

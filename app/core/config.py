@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # CORS
     FRONTEND_URL: str = "https://ledger.britsyncai.com"
 
-    ALLOWED_ORIGINS: str = "https://ledger.britsyncai.com"
+    ALLOWED_ORIGINS: str = "https://ledger.britsyncai.com,capacitor://localhost,http://localhost,http://localhost:3000"
     @property
     def cors_origins(self) -> List[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
