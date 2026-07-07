@@ -80,7 +80,7 @@ class InvoiceService:
                 print(f"[STEP 5] Stripe enabled, generating link...")
                 try:
                     stripe_svc = StripeService(settings)
-                    base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+                    base_url = os.getenv("FRONTEND_URL", "https://ledger.britsyncai.com")
                     success_url = f"{base_url}/invoices/{invoice.id}?payment=success"
                     cancel_url = f"{base_url}/invoices/{invoice.id}?payment=cancelled"
                     session = stripe_svc.create_checkout_session(invoice, success_url, cancel_url)

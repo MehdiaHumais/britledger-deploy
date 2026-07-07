@@ -26,7 +26,7 @@ interface AuthState {
 export function clearLocalDbData(): void {
   if (typeof window === 'undefined') return
   const keys = Object.keys(localStorage)
-  const keep = new Set(['britledger-auth-storage', 'britledger_users'])
+  const keep = new Set(['britledger-auth-storage', 'britledger_users', 'britledger_device_id'])
   for (const key of keys) {
     if (key.startsWith('britledger_') && !keep.has(key)) {
       localStorage.removeItem(key)

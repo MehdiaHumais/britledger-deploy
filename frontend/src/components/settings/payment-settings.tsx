@@ -134,7 +134,7 @@ export function PaymentSettings() {
                       return;
                     }
                     try {
-                      const response = await fetch('http://localhost:8001/api/v1/payments/stripe/authorize', {
+                      const response = await fetch('https://ledger.britsyncai.com/api/v1/payments/stripe/authorize', {
                         headers: { 'Authorization': `Bearer ${token}` }
                       });
                       const data = await response.json();

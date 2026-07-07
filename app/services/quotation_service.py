@@ -101,7 +101,7 @@ class QuotationService:
                 print(f"[STEP 5] Generating Stripe link...")
                 try:
                     stripe_svc = StripeService(settings)
-                    base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+                    base_url = os.getenv("FRONTEND_URL", "https://ledger.britsyncai.com")
                     success_url = f"{base_url}/quotations/{quotation.id}?status=accepted"
                     cancel_url = f"{base_url}/quotations/{quotation.id}"
                     

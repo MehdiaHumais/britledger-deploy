@@ -26,7 +26,7 @@ function PaymentPageContent() {
     try {
       // In a real app, this should be a public endpoint. 
       // For now we'll assume it works if we have the ID.
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/api/v1/invoices/${id}`).then(res => res.json())
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://ledger.britsyncai.com'}/api/v1/invoices/${id}`).then(res => res.json())
       setInvoice(response)
     } catch (err) {
       console.error('Error fetching invoice:', err)

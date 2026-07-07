@@ -23,7 +23,7 @@ async def stripe_authorize(current_user: User = Depends(get_current_user)):
         
     from urllib.parse import quote
     # Hardcoded and encoded to ensure Stripe accepts it
-    raw_redirect_uri = "http://localhost:3000/settings?tab=payments&stripe=callback"
+    raw_redirect_uri = "https://ledger.britsyncai.com/settings?tab=payments&stripe=callback"
     encoded_redirect_uri = quote(raw_redirect_uri, safe='')
     
     url = (

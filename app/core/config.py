@@ -20,9 +20,9 @@ class Settings(BaseSettings):
     JWT_RESET_TOKEN_EXPIRE_MINUTES: int = 15
 
     # CORS
-    FRONTEND_URL: str = "http://localhost:3000"
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
+    FRONTEND_URL: str = "https://ledger.britsyncai.com"
 
+    ALLOWED_ORIGINS: str = "https://ledger.britsyncai.com"
     @property
     def cors_origins(self) -> List[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None
     STRIPE_CLIENT_ID: str | None = None
-    STRIPE_CONNECT_REDIRECT_URI: str = "http://localhost:3000/settings?tab=payments&stripe=callback"
+    STRIPE_CONNECT_REDIRECT_URI: str = "https://ledger.britsyncai.com/settings?tab=payments&stripe=callback"
     PAYPAL_CLIENT_ID: str | None = None
     PAYPAL_CLIENT_SECRET: str | None = None
     PAYPAL_BASE_URL: str = "https://api-m.sandbox.paypal.com"

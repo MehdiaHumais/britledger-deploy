@@ -16,6 +16,7 @@ import { PaymentSettings } from '@/components/settings/payment-settings'
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore()
   const { success, error, warning, info } = useToast()
+  const [activeTab, setActiveTab] = useState('profile')
   
   const [profile, setProfile] = useState({
     name: '',
@@ -42,6 +43,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    if (tab === 'security') setActiveTab('security')
     const code = params.get('code')
     const state = params.get('state')
     const stripeParam = params.get('stripe')
@@ -50,7 +53,7 @@ export default function SettingsPage() {
       const finalizeStripe = async () => {
         try {
           const token = useAuthStore.getState().token
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/api/v1/payments/stripe/callback?code=${code}&state=${state}`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://ledger.britsyncai.com'}/api/v1/payments/stripe/callback?code=${code}&state=${state}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
           const data = await response.json()
@@ -274,7 +277,7 @@ export default function SettingsPage() {
           <p className="text-muted-foreground">Manage your account, business profile, and preferences.</p>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 flex overflow-x-auto no-scrollbar justify-start sm:justify-center w-full">
             <TabsTrigger value="profile" className="gap-2 shrink-0"><User size={16} /> Profile</TabsTrigger>
             <TabsTrigger value="business" className="gap-2 shrink-0"><Building size={16} /> Business</TabsTrigger>
@@ -288,6 +291,27 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="profile">
+            {user?.is_fingerprint && (
+              <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 text-amber-600 dark:text-amber-400">⚠️</div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-amber-800 dark:text-amber-300">Fingerprint Account</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                      Your account uses fingerprint authentication. Add a backup email and password so you don't lose access.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900"
+                      onClick={() => setActiveTab('security')}
+                    >
+                      Set Backup Credentials
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             <Card className="border-none shadow-md overflow-hidden">
               <CardHeader>
                 <CardTitle>User Profile</CardTitle>
@@ -374,98 +398,98 @@ export default function SettingsPage() {
           <TabsContent value="security">
             <Card className="border-none shadow-md overflow-hidden">
               <CardHeader>
-                <CardTitle>Security</CardTitle>
-                <CardDescription>Update your password and secure your account.</CardDescription>
+                <CardTitle>{user?.is_fingerprint ? 'Set Backup Credentials' : 'Security'}</CardTitle>
+                <CardDescription>
+                  {user?.is_fingerprint
+                    ? 'Add an email and password as a backup so you can log in even if you lose this device.'
+                    : 'Update your password and secure your account.'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4 max-w-md">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Current Password</label>
-                    <Input 
-                      type="password" 
-                      value={passwords.current}
-                      onChange={(e) => setPasswords({...passwords, current: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">New Password</label>
-                    <Input 
-                      type="password" 
-                      value={passwords.new}
-                      onChange={(e) => setPasswords({...passwords, new: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Confirm New Password</label>
-                    <Input 
-                      type="password" 
-                      value={passwords.confirm}
-                      onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <Button onClick={handleSavePassword} disabled={isSavingPassword}>
-                  {isSavingPassword ? <><Loader2 size={16} className="animate-spin mr-2" />Updating...</> : 'Change Password'}
-                </Button>
-                
-                <div className="pt-6 border-t">
-                  <h4 className="text-sm font-bold mb-2">Two-Factor Authentication</h4>
-                  <p className="text-sm text-muted-foreground mb-4">Add an extra layer of security to your account.</p>
-                  <Button variant="secondary" onClick={() => info('Coming Soon', '2FA setup will be available in v1.1. Your account is secured via Local Storage.')}>Enable 2FA</Button>
-                </div>
-
-                {user?.is_fingerprint && (
-                  <div className="pt-6 border-t">
-                    <h4 className="text-sm font-bold mb-2">Add Credentials (Backup)</h4>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Your account uses fingerprint authentication. Add an email and password as backup in case you lose your device.
-                    </p>
+                {!user?.is_fingerprint && (
+                  <>
                     <div className="space-y-4 max-w-md">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Backup Email</label>
-                        <Input
-                          type="email"
-                          placeholder="your@email.com"
-                          value={backupEmail}
-                          onChange={(e) => setBackupEmail(e.target.value)}
+                        <label className="text-sm font-medium">Current Password</label>
+                        <Input 
+                          type="password" 
+                          value={passwords.current}
+                          onChange={(e) => setPasswords({...passwords, current: e.target.value})}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Backup Password</label>
-                        <Input
-                          type="password"
-                          placeholder="Min 8 characters"
-                          value={backupPassword}
-                          onChange={(e) => setBackupPassword(e.target.value)}
+                        <label className="text-sm font-medium">New Password</label>
+                        <Input 
+                          type="password" 
+                          value={passwords.new}
+                          onChange={(e) => setPasswords({...passwords, new: e.target.value})}
                         />
                       </div>
-                      <Button
-                        onClick={async () => {
-                          if (!backupEmail || !backupPassword) {
-                            warning('Missing Fields', 'Please enter both email and password.')
-                            return
-                          }
-                          if (backupPassword.length < 8) {
-                            warning('Weak Password', 'Password must be at least 8 characters.')
-                            return
-                          }
-                          setIsSavingBackup(true)
-                          if (user) {
-                            db.users.update(user.id, { email: backupEmail, password: backupPassword, is_fingerprint: false })
-                            setUser({ ...user, email: backupEmail, is_fingerprint: false })
-                          }
-                          setBackupEmail('')
-                          setBackupPassword('')
-                          setIsSavingBackup(false)
-                          success('Credentials Added', 'You can now log in with email or fingerprint.')
-                        }}
-                        disabled={isSavingBackup}
-                      >
-                        {isSavingBackup ? <><Loader2 size={16} className="animate-spin mr-2" />Saving...</> : 'Save Backup Credentials'}
-                      </Button>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Confirm New Password</label>
+                        <Input 
+                          type="password" 
+                          value={passwords.confirm}
+                          onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
+                        />
+                      </div>
                     </div>
-                  </div>
+                    <Button onClick={handleSavePassword} disabled={isSavingPassword}>
+                      {isSavingPassword ? <><Loader2 size={16} className="animate-spin mr-2" />Updating...</> : 'Change Password'}
+                    </Button>
+                    
+                    <div className="pt-6 border-t">
+                      <h4 className="text-sm font-bold mb-2">Two-Factor Authentication</h4>
+                      <p className="text-sm text-muted-foreground mb-4">Add an extra layer of security to your account.</p>
+                      <Button variant="secondary" onClick={() => info('Coming Soon', '2FA setup will be available in v1.1. Your account is secured via Local Storage.')}>Enable 2FA</Button>
+                    </div>
+                  </>
                 )}
+                
+                <div className={user?.is_fingerprint ? 'space-y-4 max-w-md' : 'pt-6 border-t space-y-4 max-w-md'}>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Email</label>
+                    <Input
+                      type="email"
+                      placeholder="your@email.com"
+                      value={backupEmail}
+                      onChange={(e) => setBackupEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Password</label>
+                    <Input
+                      type="password"
+                      placeholder="Min 8 characters"
+                      value={backupPassword}
+                      onChange={(e) => setBackupPassword(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (!backupEmail || !backupPassword) {
+                        warning('Missing Fields', 'Please enter both email and password.')
+                        return
+                      }
+                      if (backupPassword.length < 8) {
+                        warning('Weak Password', 'Password must be at least 8 characters.')
+                        return
+                      }
+                      setIsSavingBackup(true)
+                      if (user) {
+                        db.users.update(user.id, { email: backupEmail, password: backupPassword, is_fingerprint: false })
+                        setUser({ ...user, email: backupEmail, is_fingerprint: false })
+                      }
+                      setBackupEmail('')
+                      setBackupPassword('')
+                      setIsSavingBackup(false)
+                      success('Credentials Added', 'You can now log in with email or fingerprint.')
+                    }}
+                    disabled={isSavingBackup}
+                  >
+                    {isSavingBackup ? <><Loader2 size={16} className="animate-spin mr-2" />Saving...</> : 'Save Backup Credentials'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
