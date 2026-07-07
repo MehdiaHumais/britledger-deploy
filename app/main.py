@@ -105,6 +105,7 @@ def create_app() -> FastAPI:
         "https://ledger.britsyncai.com",
         str(settings.FRONTEND_URL),
         "capacitor://localhost",
+        "https://localhost",
         "http://localhost",
         "http://localhost:3000",
         "http://127.0.0.1:3000",

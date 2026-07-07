@@ -180,9 +180,12 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
       }
     } catch (err: any) {
       console.error("Send Error:", err)
+      const status = err.response?.status
+      const data = err.response?.data
       const errorMsg = err.response?.data?.detail || err.message || 'An error occurred while sending.'
-      setFormError(`Server Error: ${errorMsg}`)
-      toastError('Send Failed', errorMsg)
+      const detail = status ? `[${status}] ${errorMsg}` : errorMsg
+      setFormError(`Server Error: ${detail}`)
+      toastError('Send Failed', detail)
     } finally {
       setIsSending(false)
     }
