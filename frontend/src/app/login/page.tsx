@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuthStore, clearLocalDbData } from '@/store/auth-store'
@@ -24,6 +24,14 @@ export default function LoginPage() {
   const setUser = useAuthStore((state) => state.setUser)
   const setToken = useAuthStore((state) => state.setToken)
   const router = useRouter()
+
+  useEffect(() => {
+    const reason = sessionStorage.getItem('britledger_logout_reason')
+    if (reason) {
+      setError(reason)
+      sessionStorage.removeItem('britledger_logout_reason')
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

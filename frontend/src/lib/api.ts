@@ -34,6 +34,7 @@ api.interceptors.response.use(
       const detail = error.response?.data?.detail || ''
       if (detail.toLowerCase().includes('deleted') || detail.toLowerCase().includes('disabled')) {
         useAuthStore.getState().logout()
+        sessionStorage.setItem('britledger_logout_reason', detail)
         window.location.href = '/login'
       }
     }
