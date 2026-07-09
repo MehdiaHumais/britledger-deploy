@@ -46,6 +46,8 @@ class UserBase(BaseModel):
 
 class UserUpdate(UserBase):
     password: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class FingerprintRegisterRequest(BaseModel):
@@ -63,6 +65,7 @@ class User(UserBase):
     id: str
     is_active: bool
     is_fingerprint: bool = False
+    role: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

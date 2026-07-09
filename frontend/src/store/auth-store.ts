@@ -5,6 +5,7 @@ interface User {
   id: string
   name: string
   email: string
+  role?: string
   company_name?: string
   avatar?: string
   vat_number?: string

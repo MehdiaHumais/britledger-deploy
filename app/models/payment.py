@@ -16,7 +16,7 @@ class TransactionStatus(str, enum.Enum):
 
 class PaymentSettings(BaseModel):
     __tablename__ = "payment_settings"
-    user_id = Column(String(50), ForeignKey("users.id"), nullable=False, unique=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
     
     # Stripe Credentials (Connect OAuth)
     stripe_account_id = Column(String(100), nullable=True)
@@ -47,8 +47,8 @@ class PaymentSettings(BaseModel):
 
 class PaymentTransaction(BaseModel):
     __tablename__ = "payment_transactions"
-    user_id = Column(String(50), ForeignKey("users.id"), nullable=False)
-    invoice_id = Column(String(50), ForeignKey("invoices.id"), nullable=False)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    invoice_id = Column(String(50), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
     provider = Column(Enum(PaymentProvider), nullable=False)
     provider_transaction_id = Column(String(255), nullable=True)
     amount = Column(Float, nullable=False)

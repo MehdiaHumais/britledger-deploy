@@ -153,4 +153,5 @@ async def fingerprint_upgrade(
 async def get_me(current_user: User = Depends(get_current_user)):
     user_data = UserSchema.model_validate(current_user)
     user_data.is_fingerprint = current_user.email.endswith(FINGERPRINT_DOMAIN)
+    user_data.role = current_user.role.value if current_user.role else None
     return APIResponse(data=user_data)

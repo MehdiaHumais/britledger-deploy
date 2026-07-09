@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { User, Building, Shield, Bell, Loader2, CreditCard } from 'lucide-react'
+import { User, Building, Shield, Bell, Loader2, CreditCard, UserCog } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { useToast } from '@/components/ui/toast'
 import db from '@/lib/local-db'
 import { userApi } from '@/lib/api'
 import { PaymentSettings } from '@/components/settings/payment-settings'
+import { AdminUsers } from '@/components/settings/admin-users'
 
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore()
@@ -284,6 +285,9 @@ export default function SettingsPage() {
             <TabsTrigger value="payments" className="gap-2 shrink-0"><CreditCard size={16} /> Payments</TabsTrigger>
             <TabsTrigger value="security" className="gap-2 shrink-0"><Shield size={16} /> Security</TabsTrigger>
             <TabsTrigger value="notifications" className="gap-2 shrink-0"><Bell size={16} /> Notifications</TabsTrigger>
+            {user?.role === 'SUPERADMIN' && (
+              <TabsTrigger value="admin" className="gap-2 shrink-0"><UserCog size={16} /> Admin</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="payments">
@@ -493,6 +497,12 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {user?.role === 'SUPERADMIN' && (
+            <TabsContent value="admin">
+              <AdminUsers />
+            </TabsContent>
+          )}
 
           <TabsContent value="notifications">
             <Card className="border-none shadow-md overflow-hidden">

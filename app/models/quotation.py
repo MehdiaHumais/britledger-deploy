@@ -11,8 +11,8 @@ class QuotationStatus(str, enum.Enum):
 
 class Quotation(BaseModel):
     __tablename__ = "quotations"
-    user_id = Column(String(50), ForeignKey("users.id"), nullable=False)
-    client_id = Column(String(50), ForeignKey("clients.id"), nullable=False)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    client_id = Column(String(50), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
     quotation_number = Column(String(50), nullable=False)
     status = Column(Enum(QuotationStatus), default=QuotationStatus.DRAFT)
     

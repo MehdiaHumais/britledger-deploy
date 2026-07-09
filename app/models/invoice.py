@@ -13,8 +13,8 @@ class InvoiceStatus(str, enum.Enum):
 
 class Invoice(BaseModel):
     __tablename__ = "invoices"
-    user_id = Column(String(50), ForeignKey("users.id"), nullable=False)
-    client_id = Column(String(50), ForeignKey("clients.id"), nullable=False)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    client_id = Column(String(50), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
     invoice_number = Column(String(50), nullable=False)
     status = Column(Enum(InvoiceStatus), default=InvoiceStatus.DRAFT)
     
