@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/store/auth-store'
 import api from '@/lib/api'
+import { seedSuperAdmin } from '@/lib/seed'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, token, logout } = useAuthStore()
@@ -17,6 +18,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (checkedRef.current) return
     checkedRef.current = true
+
+    seedSuperAdmin()
 
     const verifySession = async () => {
       if (isAuthenticated && token) {

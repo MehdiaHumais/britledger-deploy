@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete as sa_delete
+from pydantic import BaseModel, EmailStr
 from app.core.database import get_db
 from app.dependencies import get_current_user, get_admin_user
 from app.models.user import User
@@ -11,9 +12,35 @@ from app.models.invoice import Invoice
 from app.models.quotation import Quotation
 from app.models.notification import Notification
 from app.models.payment import PaymentSettings, PaymentTransaction
-from typing import List
+from typing import List, Optional
+
+class SeedAdminRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = "Super Admin"
+    role: Optional[str] = "SUPERADMIN"
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+@router.post("/seed", response_model=APIResponse)
+async def seed_admin(payload: SeedAdminRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalars().first()
+    if user:
+        return APIResponse(message="Admin user already exists")
+
+    from app.core.security import get_password_hash
+    new_user = User(
+        email=payload.email,
+        hashed_password=get_password_hash(payload.password),
+        full_name=payload.full_name,
+        role=payload.role,
+        is_active=True,
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return APIResponse(message="Admin user created successfully", data={"id": new_user.id})
 
 @router.get("/users", response_model=APIResponse[List[dict]])
 async def list_users(
