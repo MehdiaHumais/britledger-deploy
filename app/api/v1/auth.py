@@ -64,7 +64,7 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is disabled. Please contact support.",
+            detail="Your account has been disabled. Please contact support.",
         )
 
     token = create_access_token(subject=user.id)
@@ -109,6 +109,12 @@ async def fingerprint_login(payload: FingerprintLoginRequest, db: AsyncSession =
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No fingerprint account found on this device. Please register first.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been disabled. Please contact support.",
         )
 
     token = create_access_token(subject=user.id)
