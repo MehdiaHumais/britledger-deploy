@@ -1,5 +1,10 @@
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth'
 
+export function isBiometricAvailable(): boolean {
+  if (typeof window === 'undefined') return false
+  return typeof (window as any).Capacitor !== 'undefined' && !!(window as any).Capacitor?.isPluginAvailable?.('BiometricAuth')
+}
+
 function getDeviceId(): string {
   let deviceId = localStorage.getItem('britledger_device_id')
   if (!deviceId) {

@@ -2,6 +2,7 @@ import '@/app/globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ToastProvider } from '@/components/ui/toast'
+import { AppInitializer } from '@/components/app-initializer'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -23,7 +24,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans`} suppressHydrationWarning>
         <ToastProvider>
-          {children}
+          <AppInitializer>
+            {children}
+          </AppInitializer>
         </ToastProvider>
       </body>
     </html>

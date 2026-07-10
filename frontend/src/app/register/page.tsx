@@ -13,7 +13,7 @@ import { Fingerprint, Mail } from 'lucide-react'
 import db from '@/lib/local-db'
 import { signJWT } from '@/lib/jwt'
 import { FingerprintCredentialsModal } from '@/components/auth/fingerprint-credentials-modal'
-import { registerBiometric } from '@/lib/biometric'
+import { registerBiometric, isBiometricAvailable } from '@/lib/biometric'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -165,9 +165,11 @@ export default function RegisterPage() {
               </div>
             )}
             <Tabs defaultValue="email" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsList className={`grid w-full ${isBiometricAvailable() ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
                 <TabsTrigger value="email" className="gap-2"><Mail size={16} /> Email</TabsTrigger>
-                <TabsTrigger value="fingerprint" className="gap-2"><Fingerprint size={16} /> Fingerprint</TabsTrigger>
+                {isBiometricAvailable() && (
+                  <TabsTrigger value="fingerprint" className="gap-2"><Fingerprint size={16} /> Fingerprint</TabsTrigger>
+                )}
               </TabsList>
               <TabsContent value="email">
                 <form onSubmit={handleRegister} className="space-y-4">
@@ -223,6 +225,7 @@ export default function RegisterPage() {
                   </Button>
                 </form>
               </TabsContent>
+              {isBiometricAvailable() && (
               <TabsContent value="fingerprint">
                 <div className="space-y-6 py-4 text-center">
                   <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
@@ -253,6 +256,7 @@ export default function RegisterPage() {
                   </p>
                 </div>
               </TabsContent>
+              )}
             </Tabs>
           </CardContent>
           <CardFooter className="flex justify-center border-t p-6">

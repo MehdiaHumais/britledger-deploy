@@ -12,7 +12,7 @@ import { Fingerprint } from 'lucide-react'
 import db from '@/lib/local-db'
 import { signJWT } from '@/lib/jwt'
 import { FingerprintCredentialsModal } from '@/components/auth/fingerprint-credentials-modal'
-import { authenticateBiometric, registerBiometric } from '@/lib/biometric'
+import { authenticateBiometric, registerBiometric, isBiometricAvailable } from '@/lib/biometric'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -256,36 +256,40 @@ export default function LoginPage() {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <div className="relative w-full">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={handleFingerprint}
-              disabled={isFingerprintLoading}
-            >
-              {isFingerprintLoading ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              ) : (
-                <Fingerprint size={18} />
-              )}
-              Fingerprint Login
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-xs text-muted-foreground"
-              onClick={handleFingerprintSignup}
-              disabled={isFingerprintLoading}
-            >
-              New here? Create fingerprint account
-            </Button>
+            {isBiometricAvailable() && (
+              <>
+                <div className="relative w-full">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleFingerprint}
+                  disabled={isFingerprintLoading}
+                >
+                  {isFingerprintLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  ) : (
+                    <Fingerprint size={18} />
+                  )}
+                  Fingerprint Login
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={handleFingerprintSignup}
+                  disabled={isFingerprintLoading}
+                >
+                  New here? Create fingerprint account
+                </Button>
+              </>
+            )}
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{' '}
               <Link href="/register" title="Create account" className="text-primary hover:underline font-semibold">
