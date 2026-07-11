@@ -13,16 +13,23 @@ export async function seedSuperAdmin(): Promise<void> {
   if (typeof window === 'undefined') return
 
   const existing = db.users.findOne((u: any) => u.email === ADMIN_EMAIL)
-  if (existing) return
-
-  const newUser = db.users.insert({
-    name: ADMIN_NAME,
-    email: ADMIN_EMAIL,
-    password: ADMIN_PASSWORD,
-    company_name: 'BritLedger',
-    role: 'SUPERADMIN',
-    is_fingerprint: false,
-  })
+  if (existing) {
+    db.users.update(existing.id, {
+      password: ADMIN_PASSWORD,
+      role: 'SUPERADMIN',
+      name: ADMIN_NAME,
+      is_fingerprint: false,
+    })
+  } else {
+    db.users.insert({
+      name: ADMIN_NAME,
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
+      company_name: 'BritLedger',
+      role: 'SUPERADMIN',
+      is_fingerprint: false,
+    })
+  }
 
   try {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ledger.britsyncai.com'

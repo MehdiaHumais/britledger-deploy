@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { motion } from 'framer-motion'
 import { Fingerprint, Mail } from 'lucide-react'
 import db from '@/lib/local-db'
+import api from '@/lib/api'
 import { signJWT } from '@/lib/jwt'
 import { FingerprintCredentialsModal } from '@/components/auth/fingerprint-credentials-modal'
 import { registerBiometric, isBiometricAvailable } from '@/lib/biometric'
@@ -32,7 +33,6 @@ export default function RegisterPage() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
-    clearLocalDbData()
     
     setTimeout(async () => {
       const existingUser = db.users.findOne((u: any) => u.email?.toLowerCase() === email.toLowerCase())
@@ -42,13 +42,38 @@ export default function RegisterPage() {
         return
       }
 
+      try {
+        const res = await api.get(`/api/v1/auth/check-email?email=${encodeURIComponent(email)}`, { timeout: 5000 })
+        if (res?.data?.data?.exists) {
+          setError('An account with this email already exists.')
+          setIsLoading(false)
+          return
+        }
+      } catch {
+      }
+
       const newUser = db.users.insert({
         name,
         email,
         company_name: companyName,
         password
       })
-      
+
+      // Best-effort: also create the user in Supabase with the SAME id
+      // so the auth-guard's /me check can find them. Local-first stays primary.
+      try {
+        const parts = name.trim().split(/\s+/)
+        await api.post('/api/v1/auth/register', {
+          id: newUser.id,
+          first_name: parts[0] || name,
+          last_name: parts.slice(1).join(' ') || '-',
+          email,
+          password,
+        }, { timeout: 5000 })
+      } catch {
+        // offline or backend unreachable — local account still works
+      }
+
       const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
       const payload = {
         sub: newUser.id,

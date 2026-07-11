@@ -6,6 +6,7 @@ import re
 
 
 class RegisterRequest(BaseModel):
+    id: Optional[str] = None
     first_name: str
     last_name: str
     email: EmailStr
@@ -14,17 +15,10 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        errors = []
+        # Local-first app: the Supabase password is only a sync record,
+        # so we only enforce a minimum length (matches the frontend input).
         if len(v) < 8:
-            errors.append("at least 8 characters")
-        if not re.search(r"[A-Z]", v):
-            errors.append("one uppercase letter")
-        if not re.search(r"\d", v):
-            errors.append("one digit")
-        if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':,./<>?]", v):
-            errors.append("one special character")
-        if errors:
-            raise ValueError(f"Password must contain: {', '.join(errors)}")
+            raise ValueError("Password must be at least 8 characters")
         return v
 
 

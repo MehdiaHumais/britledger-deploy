@@ -37,11 +37,10 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
-    clearLocalDbData()
     
     setTimeout(async () => {
       const user = db.users.findOne((u: any) => u.email?.toLowerCase() === email.toLowerCase() && u.password === password)
-      
+
       if (user) {
         const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
         const payload = {

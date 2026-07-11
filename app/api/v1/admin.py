@@ -27,6 +27,21 @@ async def seed_admin(payload: SeedAdminRequest, db: AsyncSession = Depends(get_d
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalars().first()
     if user:
+        from app.core.security import get_password_hash, verify_password
+        updated = False
+        if not verify_password(payload.password, user.hashed_password):
+            user.hashed_password = get_password_hash(payload.password)
+            updated = True
+        if user.role != "SUPERADMIN" or not user.is_active:
+            user.role = "SUPERADMIN"
+            user.is_active = True
+            updated = True
+        if payload.full_name and user.full_name != payload.full_name:
+            user.full_name = payload.full_name
+            updated = True
+        if updated:
+            await db.commit()
+            return APIResponse(message="Admin user updated with correct password hash and role")
         return APIResponse(message="Admin user already exists")
 
     from app.core.security import get_password_hash

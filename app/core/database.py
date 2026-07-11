@@ -15,7 +15,7 @@ if not _is_sqlite:
         return await _original_asyncpg_connect(*args, **kwargs)
     _asyncpg.connect = _asyncpg_connect_stmt_cache
 
-connect_args = {"check_same_thread": False} if _is_sqlite else {}
+connect_args = {"check_same_thread": False} if _is_sqlite else {"prepared_statement_cache_size": 0}
 poolclass = None if _is_sqlite else NullPool
 
 engine = create_async_engine(

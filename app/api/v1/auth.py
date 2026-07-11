@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from uuid import uuid4
 
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
@@ -34,6 +35,7 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
 
     full_name = f"{payload.first_name} {payload.last_name}".strip()
     user = User(
+        id=payload.id or str(uuid4()),
         email=payload.email,
         full_name=full_name,
         hashed_password=get_password_hash(payload.password),
@@ -155,3 +157,11 @@ async def get_me(current_user: User = Depends(get_current_user)):
     user_data.is_fingerprint = current_user.email.endswith(FINGERPRINT_DOMAIN)
     user_data.role = current_user.role.value if current_user.role else None
     return APIResponse(data=user_data)
+
+
+@router.get("/check-email")
+async def check_email(email: str, db: AsyncSession = Depends(get_db)):
+    """Check if an email is already taken (used by the register page to block re-use)."""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalars().first()
+    return APIResponse(data={"exists": user is not None})
