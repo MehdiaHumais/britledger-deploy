@@ -59,17 +59,21 @@ export default function RegisterPage() {
         password
       })
 
-      // Best-effort: also create the user in Supabase with the SAME id
-      // so the auth-guard's /me check can find them. Local-first stays primary.
+      // Create the user in Supabase with the SAME id, and use the backend's
+      // access_token so the auth-guard's /me check validates against the backend.
+      // Local-first stays primary: if the backend is unreachable we fall back to a
+      // locally signed token (works offline, but /me will not validate).
+      let backendToken: string | null = null
       try {
         const parts = name.trim().split(/\s+/)
-        await api.post('/api/v1/auth/register', {
+        const regRes = await api.post('/api/v1/auth/register', {
           id: newUser.id,
           first_name: parts[0] || name,
           last_name: parts.slice(1).join(' ') || '-',
           email,
           password,
         }, { timeout: 5000 })
+        backendToken = regRes?.data?.data?.access_token || null
       } catch {
         // offline or backend unreachable — local account still works
       }
@@ -84,7 +88,7 @@ export default function RegisterPage() {
       }
       
       try {
-        const token = await signJWT(payload, secret)
+        const token = backendToken || await signJWT(payload, secret)
         
         setUser({
           id: newUser.id,
