@@ -43,8 +43,13 @@ class Settings(BaseSettings):
 
     @property
     def SUPABASE_DATABASE_URL(self) -> str:
-        """Async URL for FastAPI/asyncpg"""
-        return self.SUPABASE_DATABASE_URL_RAW
+        """Async URL for FastAPI/asyncpg — appends prepared_statement_cache_size=0
+        to disable pgbouncer's DuplicatePreparedStatementError."""
+        url = self.SUPABASE_DATABASE_URL_RAW
+        if url and "prepared_statement_cache_size" not in url:
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}prepared_statement_cache_size=0"
+        return url
 
     @property
     def sync_database_url(self) -> str:
