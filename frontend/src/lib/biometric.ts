@@ -1,7 +1,12 @@
+import { Capacitor } from '@capacitor/core'
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth'
 
+// Fingerprint auth must only show inside the native mobile app (Android/iOS
+// WebView). On desktop/laptop browsers Capacitor.isNativePlatform() is false,
+// so the button is hidden there.
 export function isBiometricAvailable(): boolean {
   if (typeof window === 'undefined') return false
+  if (!Capacitor.isNativePlatform()) return false
   return typeof (window as any).Capacitor !== 'undefined' && !!(window as any).Capacitor?.isPluginAvailable?.('BiometricAuth')
 }
 

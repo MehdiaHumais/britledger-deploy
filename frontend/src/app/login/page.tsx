@@ -3,16 +3,18 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuthStore, clearLocalDbData } from '@/store/auth-store'
+import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { Fingerprint } from 'lucide-react'
 import db from '@/lib/local-db'
+import api from '@/lib/api'
 import { signJWT } from '@/lib/jwt'
 import { FingerprintCredentialsModal } from '@/components/auth/fingerprint-credentials-modal'
-import { authenticateBiometric, registerBiometric, isBiometricAvailable } from '@/lib/biometric'
+import { authenticateBiometric, registerBiometric } from '@/lib/biometric'
+import { useBiometricAvailable } from '@/lib/useBiometricAvailable'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -23,6 +25,7 @@ export default function LoginPage() {
   const [showCredentialsModal, setShowCredentialsModal] = useState(false)
   const setUser = useAuthStore((state) => state.setUser)
   const setToken = useAuthStore((state) => state.setToken)
+  const biometricAvailable = useBiometricAvailable()
   const router = useRouter()
 
   useEffect(() => {
@@ -93,33 +96,62 @@ export default function LoginPage() {
       return
     }
 
-    const userRecord = db.users.findOne((u: any) => u.biometric_id === result.credentialId)
-    if (!userRecord) {
+    const deviceId = result.credentialId.includes(':')
+      ? result.credentialId.split(':')[1]
+      : result.credentialId
+
+    let backendToken: string | null = null
+    try {
+      const loginRes = await api.post(
+        '/api/v1/auth/fingerprint/login',
+        { device_id: deviceId },
+        { timeout: 15000 }
+      )
+      backendToken = loginRes?.data?.access_token || null
+    } catch (err: any) {
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail || ''
+      if (status === 404) {
+        setError(detail || 'No fingerprint account found. Please register first.')
+      } else {
+        setError(detail || 'Server error. Please try again later.')
+      }
+      setIsFingerprintLoading(false)
+      return
+    }
+
+    if (!backendToken) {
       setError('No fingerprint account found for this device. Please sign up first.')
       setIsFingerprintLoading(false)
       return
     }
 
-    const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
-    const payload = {
-      sub: userRecord.id,
-      email: userRecord.email || '',
-      name: userRecord.name,
-      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30)
+    // Local record so the app's local data works (keyed by biometric id)
+    let localUser = db.users.findOne((u: any) => u.biometric_id === result.credentialId)
+    if (!localUser) {
+      localUser = db.users.insert({
+        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+        name: 'Fingerprint User',
+        biometric_id: result.credentialId,
+        is_fingerprint: true,
+      })
     }
 
     try {
-      const token = await signJWT(payload, secret)
       setUser({
-        id: userRecord.id,
-        name: userRecord.name,
-        email: userRecord.email || '',
+        id: localUser.id,
+        name: localUser.name,
+        email: localUser.email || '',
         is_fingerprint: true,
       })
-      setToken(token)
-      localStorage.setItem('britledger_token', token)
+      setToken(backendToken)
+      localStorage.setItem('britledger_token', backendToken)
       setIsFingerprintLoading(false)
-      setShowCredentialsModal(true)
+      if (!localUser.email || !localUser.password) {
+        setShowCredentialsModal(true)
+      } else {
+        router.push('/dashboard')
+      }
     } catch (err) {
       setError('Failed to authenticate')
       setIsFingerprintLoading(false)
@@ -142,11 +174,6 @@ export default function LoginPage() {
       setIsFingerprintLoading(false)
       return
     }
-    if (!result) {
-      setError('Biometric registration was cancelled or failed.')
-      setIsFingerprintLoading(false)
-      return
-    }
 
     const existingUser = db.users.findOne((u: any) => u.biometric_id === result.credentialId)
     if (existingUser) {
@@ -155,31 +182,54 @@ export default function LoginPage() {
       return
     }
 
+    const deviceId = result.credentialId.includes(':')
+      ? result.credentialId.split(':')[1]
+      : result.credentialId
+
+    let backendToken: string | null = null
+    let userId: string | null = null
+    try {
+      const regRes = await api.post(
+        '/api/v1/auth/fingerprint/register',
+        { device_id: deviceId, name },
+        { timeout: 15000 }
+      )
+      backendToken = regRes?.data?.data?.access_token || null
+      userId = regRes?.data?.data?.user_id || null
+    } catch (err: any) {
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail || ''
+      if (status === 409) {
+        setError('This device is already registered. Use "Fingerprint Login" instead.')
+      } else {
+        setError(detail || 'Server error. Please try again later.')
+      }
+      setIsFingerprintLoading(false)
+      return
+    }
+
+    if (!backendToken) {
+      setError('Could not create your fingerprint account on the server. Please try again.')
+      setIsFingerprintLoading(false)
+      return
+    }
+
     const newUser = db.users.insert({
-      id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+      id: userId || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
       name,
       biometric_id: result.credentialId,
       is_fingerprint: true,
     })
 
-    const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
-    const payload = {
-      sub: newUser.id,
-      email: newUser.email || '',
-      name: newUser.name,
-      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30)
-    }
-
     try {
-      const token = await signJWT(payload, secret)
       setUser({
         id: newUser.id,
         name: newUser.name,
         email: newUser.email || '',
         is_fingerprint: true,
       })
-      setToken(token)
-      localStorage.setItem('britledger_token', token)
+      setToken(backendToken)
+      localStorage.setItem('britledger_token', backendToken)
       setIsFingerprintLoading(false)
       setShowCredentialsModal(true)
     } catch (err) {
@@ -255,7 +305,7 @@ export default function LoginPage() {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            {isBiometricAvailable() && (
+            {biometricAvailable && (
               <>
                 <div className="relative w-full">
                   <div className="absolute inset-0 flex items-center">

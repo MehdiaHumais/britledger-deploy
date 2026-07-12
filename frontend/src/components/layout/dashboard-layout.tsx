@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './sidebar'
 import { AuthGuard } from '@/components/auth/auth-guard'
@@ -13,6 +14,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const themeInitialized = useRef(false)
+  const router = useRouter()
 
   useEffect(() => {
     if (themeInitialized.current) return
@@ -40,6 +42,21 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       setIsDark(true)
     }
   }, [isDark])
+
+  useEffect(() => {
+    let App: any
+    try {
+      App = require('@capacitor/app')?.App
+    } catch {}
+    if (!App) return
+    App.addListener('backButton', () => {
+      const hasHistory = window.history.length > 1
+      if (hasHistory) {
+        router.back()
+      }
+    })
+    return () => { App.removeAllListeners() }
+  }, [router])
 
   return (
     <AuthGuard>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuthStore, clearLocalDbData } from '@/store/auth-store'
+import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +14,8 @@ import db from '@/lib/local-db'
 import api from '@/lib/api'
 import { signJWT } from '@/lib/jwt'
 import { FingerprintCredentialsModal } from '@/components/auth/fingerprint-credentials-modal'
-import { registerBiometric, isBiometricAvailable } from '@/lib/biometric'
+import { registerBiometric } from '@/lib/biometric'
+import { useBiometricAvailable } from '@/lib/useBiometricAvailable'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -28,6 +29,7 @@ export default function RegisterPage() {
   const setUser = useAuthStore((state) => state.setUser)
   const setToken = useAuthStore((state) => state.setToken)
   const router = useRouter()
+  const biometricAvailable = useBiometricAvailable()
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -111,7 +113,6 @@ export default function RegisterPage() {
       }
     }, 800)
   }
-
   const handleFingerprintRegister = async () => {
     setIsLoading(true)
     setError('')
@@ -129,33 +130,55 @@ export default function RegisterPage() {
       return
     }
 
-    clearLocalDbData()
+    const deviceId = result.credentialId.includes(':')
+      ? result.credentialId.split(':')[1]
+      : result.credentialId
 
+    let backendToken: string | null = null
+    let userId: string | null = null
+    try {
+      const regRes = await api.post(
+        '/api/v1/auth/fingerprint/register',
+        { device_id: deviceId, name: fpName },
+        { timeout: 15000 }
+      )
+      backendToken = regRes?.data?.data?.access_token || null
+      userId = regRes?.data?.data?.user_id || null
+    } catch (err: any) {
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail || ''
+      if (status === 409) {
+        setError('This device is already registered. Try "Fingerprint Login" instead.')
+      } else {
+        setError(detail || 'Server error. Please try again later.')
+      }
+      setIsLoading(false)
+      return
+    }
+
+    if (!backendToken) {
+      setError('Could not create your fingerprint account on the server. Please try again.')
+      setIsLoading(false)
+      return
+    }
+
+    // Local record so the app's local data works (same id as the backend user)
     const newUser = db.users.insert({
-      id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+      id: userId || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
       name: fpName,
       biometric_id: result.credentialId,
       is_fingerprint: true,
     })
 
-    const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
-    const payload = {
-      sub: newUser.id,
-      email: newUser.email || '',
-      name: newUser.name,
-      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30)
-    }
-
     try {
-      const token = await signJWT(payload, secret)
       setUser({
         id: newUser.id,
         name: newUser.name,
         email: newUser.email || '',
         is_fingerprint: true,
       })
-      setToken(token)
-      localStorage.setItem('britledger_token', token)
+      setToken(backendToken)
+      localStorage.setItem('britledger_token', backendToken)
       setIsLoading(false)
       setShowCredentialsModal(true)
     } catch (err) {
@@ -194,9 +217,9 @@ export default function RegisterPage() {
               </div>
             )}
             <Tabs defaultValue="email" className="w-full">
-              <TabsList className={`grid w-full ${isBiometricAvailable() ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
+              <TabsList className={`grid w-full ${biometricAvailable ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
                 <TabsTrigger value="email" className="gap-2"><Mail size={16} /> Email</TabsTrigger>
-                {isBiometricAvailable() && (
+                {biometricAvailable && (
                   <TabsTrigger value="fingerprint" className="gap-2"><Fingerprint size={16} /> Fingerprint</TabsTrigger>
                 )}
               </TabsList>
@@ -254,7 +277,7 @@ export default function RegisterPage() {
                   </Button>
                 </form>
               </TabsContent>
-              {isBiometricAvailable() && (
+              {biometricAvailable && (
               <TabsContent value="fingerprint">
                 <div className="space-y-6 py-4 text-center">
                   <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">

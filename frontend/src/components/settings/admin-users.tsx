@@ -29,9 +29,11 @@ export function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const res = await api.get('/api/v1/admin/users')
-      setUsers(res.data?.data || [])
+      const res = await api.get('/api/v1/admin/users', { timeout: 15000 })
+      const list = res.data?.data || []
+      setUsers(Array.isArray(list) ? list : [])
     } catch (err: any) {
+      if (err?.response?.status === 401) return
       showError('Failed to load users', err.response?.data?.detail || 'Server error')
     } finally {
       setLoading(false)
@@ -43,9 +45,9 @@ export function AdminUsers() {
   const handleToggleActive = async (user: UserRow) => {
     setTogglingId(user.id)
     try {
-      await api.patch(`/api/v1/admin/users/${user.id}`, { is_active: !user.is_active })
+      await api.patch(`/api/v1/admin/users/${user.id}`, { is_active: !user.is_active }, { timeout: 15000 })
       success('User Updated', `${user.full_name || user.email} ${user.is_active ? 'disabled' : 'enabled'}`)
-      fetchUsers()
+      setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_active: !u.is_active } : u))
     } catch (err: any) {
       showError('Update failed', err.response?.data?.detail || 'Server error')
     } finally {
@@ -57,9 +59,9 @@ export function AdminUsers() {
     if (!confirm(`Delete user "${user.full_name || user.email}"? This will remove all their data.`)) return
     setDeletingId(user.id)
     try {
-      await api.delete(`/api/v1/admin/users/${user.id}`)
+      await api.delete(`/api/v1/admin/users/${user.id}`, { timeout: 15000 })
       success('User Deleted', `${user.full_name || user.email} and all associated data removed`)
-      fetchUsers()
+      setUsers((prev) => prev.filter((u) => u.id !== user.id))
     } catch (err: any) {
       showError('Delete failed', err.response?.data?.detail || 'Server error')
     } finally {
