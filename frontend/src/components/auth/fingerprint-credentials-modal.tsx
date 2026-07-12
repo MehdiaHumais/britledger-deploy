@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import db from '@/lib/local-db'
 import { useAuthStore } from '@/store/auth-store'
+import api from '@/lib/api'
 
 interface Props {
   open: boolean
@@ -32,8 +33,16 @@ export function FingerprintCredentialsModal({ open, onClose }: Props) {
     }
     setSaving(true)
     if (user) {
-      db.users.update(user.id, { email, password, is_fingerprint: false })
-      setUser({ ...user, email, is_fingerprint: false })
+      try {
+        await api.post('/api/v1/auth/fingerprint/upgrade', { email, password }, { timeout: 15000 })
+        db.users.update(user.id, { email, password, is_fingerprint: false })
+        setUser({ ...user, email, is_fingerprint: false })
+      } catch (err: any) {
+        const detail = err?.response?.data?.detail || 'Server error. Please try again.'
+        setError(detail)
+        setSaving(false)
+        return
+      }
     }
     setSaving(false)
     onClose()

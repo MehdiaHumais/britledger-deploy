@@ -11,7 +11,6 @@ import { motion } from 'framer-motion'
 import { Fingerprint } from 'lucide-react'
 import db from '@/lib/local-db'
 import api from '@/lib/api'
-import { signJWT } from '@/lib/jwt'
 import { FingerprintCredentialsModal } from '@/components/auth/fingerprint-credentials-modal'
 import { authenticateBiometric, registerBiometric } from '@/lib/biometric'
 import { useBiometricAvailable } from '@/lib/useBiometricAvailable'
@@ -40,49 +39,47 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
-    
-    setTimeout(async () => {
-      const user = db.users.findOne((u: any) => u.email?.toLowerCase() === email.toLowerCase() && u.password === password)
 
-      if (user) {
-        const secret = process.env.NEXT_PUBLIC_JWT_SECRET || 'fallback_secret'
-        const payload = {
-          sub: user.id,
-          email: user.email,
-          name: user.name,
-          company: user.company_name,
-          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30)
-        }
-        
-        try {
-          const token = await signJWT(payload, secret)
-          
-          setUser({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            company_name: user.company_name || 'My Company',
-            vat_number: user.vat_number,
-            address: user.address,
-            email_notifications: user.email_notifications,
-            ai_notifications: user.ai_notifications
-          })
-          setToken(token)
-          
-          localStorage.setItem('britledger_token', token)
-          
-          setIsLoading(false)
-          router.push('/dashboard')
-        } catch (err) {
-          setError('Failed to generate authentication token')
-          setIsLoading(false)
-        }
-      } else {
-        setError('Invalid email or password. If you do not have an account, please register.')
+    try {
+      const res = await api.post('/api/v1/auth/login', { email, password }, { timeout: 15000 })
+      const data = res.data?.data
+      if (!data?.access_token) {
+        setError('Invalid email or password.')
         setIsLoading(false)
+        return
       }
-    }, 800)
+
+      setToken(data.access_token)
+      localStorage.setItem('britledger_token', data.access_token)
+
+      // Fetch user profile from /me
+      try {
+        const meRes = await api.get('/api/v1/auth/me', { timeout: 15000 })
+        const me = meRes.data?.data
+        if (me) {
+          setUser({
+            id: me.id,
+            name: me.full_name || '',
+            email: me.email || '',
+            avatar: me.avatar || '',
+            role: me.role || 'ADMIN',
+            is_fingerprint: me.is_fingerprint || false,
+          })
+        }
+      } catch {}
+
+      setIsLoading(false)
+      router.push('/dashboard')
+    } catch (err: any) {
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail || ''
+      if (status === 401) {
+        setError(detail || 'Invalid email or password.')
+      } else {
+        setError(detail || 'Server error. Please try again.')
+      }
+      setIsLoading(false)
+    }
   }
 
   const handleFingerprint = async () => {

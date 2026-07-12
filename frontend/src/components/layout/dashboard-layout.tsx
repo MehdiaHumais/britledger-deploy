@@ -49,10 +49,17 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       App = require('@capacitor/app')?.App
     } catch {}
     if (!App) return
+    let lastExitTime = 0
     App.addListener('backButton', () => {
-      const hasHistory = window.history.length > 1
-      if (hasHistory) {
+      if (window.history.length > 1) {
         router.back()
+      } else {
+        const now = Date.now()
+        if (now - lastExitTime < 2000) {
+          App.exitApp()
+        } else {
+          lastExitTime = now
+        }
       }
     })
     return () => { App.removeAllListeners() }
