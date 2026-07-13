@@ -119,9 +119,14 @@ export function PaymentSettings() {
               
               <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-lg border border-dashed mb-4">
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  To use Stripe, enter your API keys below. Get them from your 
-                  <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer" className="underline mx-1">Stripe Dashboard</a>
-                  (use <strong>live</strong> keys for production).
+                  Enter your Stripe API keys below, then click <strong>Save Configuration</strong> at the top.
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                  Get your keys from{' '}
+                  <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer" className="underline">
+                    Stripe Dashboard
+                  </a>
+                  {' '}(use <strong>live</strong> keys for production).
                 </p>
               </div>
             </CardHeader>
@@ -129,7 +134,7 @@ export function PaymentSettings() {
               <div className="grid gap-2">
                 <Label>Stripe Publishable Key</Label>
                 <Input 
-                  placeholder="pk_test_..." 
+                  placeholder="pk_live_..." 
                   value={settings.stripe_public_key}
                   onChange={(e) => setSettings({...settings, stripe_public_key: e.target.value})}
                 />
@@ -138,7 +143,7 @@ export function PaymentSettings() {
                 <Label>Stripe Secret Key</Label>
                 <Input 
                   type="password" 
-                  placeholder="sk_test_..." 
+                  placeholder="sk_live_..." 
                   value={settings.stripe_secret_key}
                   onChange={(e) => setSettings({...settings, stripe_secret_key: e.target.value})}
                 />
@@ -152,12 +157,10 @@ export function PaymentSettings() {
                   onChange={(e) => setSettings({...settings, stripe_webhook_secret: e.target.value})}
                 />
               </div>
-              <div className="pt-2">
-                <Button variant="link" className="p-0 h-auto text-xs gap-1" asChild>
-                  <a href="https://dashboard.stripe.com/apikeers" target="_blank" rel="noreferrer">
-                    Get your API keys from Stripe Dashboard <ExternalLink size={12} />
-                  </a>
-                </Button>
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded border mt-4">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Webhook Endpoint URL</p>
+                <p className="text-sm font-mono text-primary break-all">https://ledger.britsyncai.com/api/v1/payments/stripe/webhook</p>
+                <p className="text-xs text-muted-foreground mt-1">Add this URL in your Stripe Dashboard → Developers → Webhooks</p>
               </div>
             </CardContent>
           </Card>
