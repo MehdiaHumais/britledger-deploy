@@ -29,6 +29,8 @@ export default function ClientsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [deactivateClient, setDeactivateClient] = useState<Client | null>(null)
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false)
+  const [deleteClient, setDeleteClient] = useState<Client | null>(null)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isDeactivating, setIsDeactivating] = useState(false)
@@ -77,9 +79,34 @@ export default function ClientsPage() {
     setIsDeactivating(false)
   }
 
+  const handleDelete = () => {
+    if (!deleteClient) return
+    db.clients.delete(deleteClient.id)
+    // Delete related invoices
+    db.invoices.getAll().forEach(inv => {
+      if (inv.clientId === deleteClient.id) {
+        db.invoices.delete(inv.id)
+        db.vat_returns.getAll().forEach(v => {
+          if (v.invoiceId === inv.id || v.invoiceNumber === inv.number) {
+            db.vat_returns.delete(v.id)
+          }
+        })
+      }
+    })
+    // Delete related quotations
+    db.quotations.getAll().forEach(q => {
+      if (q.clientId === deleteClient.id) {
+        db.quotations.delete(q.id)
+      }
+    })
+    setIsDeleteOpen(false)
+    load()
+  }
+
   const openView = (c: Client) => { router.push(`/clients/detail?id=${c.id}`) }
   const openEdit = (c: Client) => { setEditClient({ ...c }); setIsEditOpen(true) }
   const openDeactivate = (c: Client) => { setDeactivateClient(c); setIsDeactivateOpen(true) }
+  const openDelete = (c: Client) => { setDeleteClient(c); setIsDeleteOpen(true) }
 
   const filtered = clientsData.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -176,6 +203,22 @@ export default function ClientsPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Delete confirm */}
+        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete Client</DialogTitle>
+              <DialogDescription>
+                Permanently delete "{deleteClient?.name}" and all associated invoices, quotations, and VAT records? This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Table */}
         <Card className="border-none shadow-md overflow-hidden">
           <CardHeader className="pb-3">
@@ -223,6 +266,10 @@ export default function ClientsPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className={cn("gap-2 cursor-pointer", client.status === 'Active' ? "text-rose-600" : "text-emerald-600")} onClick={() => openDeactivate(client)}>
                               <Trash2 size={14} /> {client.status === 'Active' ? 'Deactivate' : 'Reactivate'}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="gap-2 cursor-pointer text-red-600" onClick={() => openDelete(client)}>
+                              Delete Permanently
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

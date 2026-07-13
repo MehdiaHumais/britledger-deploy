@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus, MoreHorizontal, Edit2, Loader2, FileText } from 'lucide-react'
+import { Plus, MoreHorizontal, Edit2, Trash2, Loader2, FileText } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '../../components/ui/toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -49,6 +49,12 @@ export default function QuotationsPage() {
     load()
     setActiveTab('list')
     success('Quotation Saved', `${data.documentNumber} has been saved successfully.`)
+  }
+
+  const handleDeleteQuotation = (quo: any) => {
+    db.quotations.delete(quo.id)
+    load()
+    success('Quotation Deleted', `${quo.number} has been deleted.`)
   }
 
   const convertToInvoice = (quo: any) => {
@@ -135,6 +141,10 @@ export default function QuotationsPage() {
                                   onClick={() => convertToInvoice(quo)}
                                 >
                                   {quo.status === 'Accepted' ? '✓ Converted' : 'Convert to Invoice'}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-rose-600 gap-2 cursor-pointer" onClick={() => handleDeleteQuotation(quo)}>
+                                  <Trash2 size={14} /> Delete Quotation
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

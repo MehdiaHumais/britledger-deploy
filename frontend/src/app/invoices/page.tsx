@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus, MoreHorizontal, Edit2, Loader2, FileText } from 'lucide-react'
+import { Plus, MoreHorizontal, Edit2, Trash2, Loader2, FileText } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '../../components/ui/toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -19,6 +19,7 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState('list')
   const [editingInvoice, setEditingInvoice] = useState<any>(null)
+  const [deletingInvoice, setDeletingInvoice] = useState<any>(null)
 
   const load = () => setInvoices(db.invoices.getAll('created_at', false))
   useEffect(() => { load() }, [])
@@ -85,6 +86,17 @@ export default function InvoicesPage() {
     })
     load()
     success('Marked as Paid', 'Invoice status updated to Paid.')
+  }
+
+  const handleDeleteInvoice = (inv: any) => {
+    db.invoices.delete(inv.id)
+    db.vat_returns.getAll().forEach(v => {
+      if (v.invoiceId === inv.id || v.invoiceNumber === inv.number) {
+        db.vat_returns.delete(v.id)
+      }
+    })
+    load()
+    success('Invoice Deleted', `${inv.number} has been deleted.`)
   }
 
   const handleDownloadPDF = (inv: any) => {
@@ -256,6 +268,10 @@ export default function InvoicesPage() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleEditClick(inv)}>
                                   Edit Invoice
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-rose-600 gap-2 cursor-pointer" onClick={() => handleDeleteInvoice(inv)}>
+                                  <Trash2 size={14} /> Delete Invoice
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
