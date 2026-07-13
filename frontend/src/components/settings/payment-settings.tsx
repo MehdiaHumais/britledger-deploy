@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CreditCard, Landmark, CircleDollarSign, Loader2, Save, ExternalLink } from 'lucide-react'
 import { paymentApi } from '@/lib/api'
 import { useToast } from '@/components/ui/toast'
-import { useAuthStore } from '@/store/auth-store'
 
 export function PaymentSettings() {
   const { success, error } = useToast()
@@ -118,37 +117,12 @@ export function PaymentSettings() {
                 </div>
               </div>
               
-              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-dashed flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`h-3 w-3 rounded-full ${settings.stripe_account_id ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
-                  <div>
-                    <p className="font-medium">{settings.stripe_account_id ? 'Stripe Account Connected' : 'Stripe Not Connected'}</p>
-                    <p className="text-xs text-muted-foreground">{settings.stripe_account_id ? `ID: ${settings.stripe_account_id}` : 'Connect your account to start accepting payments.'}</p>
-                  </div>
-                </div>
-                <Button 
-                  onClick={async () => {
-                    const token = useAuthStore.getState().token;
-                    if (!token) {
-                      error('Not Logged In', 'Please log in again to connect Stripe.');
-                      return;
-                    }
-                    try {
-                      const response = await fetch('https://ledger.britsyncai.com/api/v1/payments/stripe/authorize', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                      });
-                      const data = await response.json();
-                      if (data.url) window.location.href = data.url;
-                    } catch (err) {
-                      error('Connect Failed', 'Could not initiate Stripe connection.');
-                    }
-                  }}
-                  variant={settings.stripe_account_id ? "outline" : "default"}
-                  className="gap-2"
-                >
-                  <CreditCard size={16} />
-                  {settings.stripe_account_id ? 'Reconnect Stripe' : 'Connect Stripe'}
-                </Button>
+              <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-lg border border-dashed mb-4">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  To use Stripe, enter your API keys below. Get them from your 
+                  <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer" className="underline mx-1">Stripe Dashboard</a>
+                  (use <strong>live</strong> keys for production).
+                </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">

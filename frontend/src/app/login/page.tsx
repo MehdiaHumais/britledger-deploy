@@ -42,21 +42,23 @@ export default function LoginPage() {
 
     try {
       const res = await api.post('/api/v1/auth/login', { email, password }, { timeout: 15000 })
-      const data = res.data?.data
+      const data = res.data?.data || res.data
       if (!data?.access_token) {
         setError('Invalid email or password.')
         setIsLoading(false)
         return
       }
 
+      // Set a placeholder user immediately so AuthGuard doesn't redirect back
+      setUser({ id: 'loading', name: email, email })
       setToken(data.access_token)
       localStorage.setItem('britledger_token', data.access_token)
 
       // Fetch user profile from /me
       try {
         const meRes = await api.get('/api/v1/auth/me', { timeout: 15000 })
-        const me = meRes.data?.data
-        if (me) {
+        const me = meRes.data?.data || meRes.data
+        if (me && me.id) {
           setUser({
             id: me.id,
             name: me.full_name || '',

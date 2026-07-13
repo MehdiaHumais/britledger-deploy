@@ -5,12 +5,13 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
-# Must be imported before engine creation to patch asyncpg.connect
-from app.core import database_patch  # noqa: F401
-
 _is_sqlite = "sqlite" in settings.database_url
 
-connect_args = {"check_same_thread": False} if _is_sqlite else {}
+connect_args = (
+    {"check_same_thread": False}
+    if _is_sqlite
+    else {"statement_cache_size": 0}
+)
 poolclass = None if _is_sqlite else NullPool
 
 engine = create_async_engine(
