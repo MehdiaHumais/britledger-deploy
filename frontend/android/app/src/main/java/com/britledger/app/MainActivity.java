@@ -1,4 +1,4 @@
-package com.britledger.app;
+﻿package com.britledger.app;
 
 import android.os.Bundle;
 import android.webkit.WebView;
@@ -49,13 +49,37 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onBackPressed() {
-        finishAffinity();
+        WebView wv = getBridge().getWebView();
+        if (wv != null) {
+            String url = wv.getUrl() != null ? wv.getUrl() : "";
+            if (url.contains("/dashboard") || url.equals(initialUrl)) {
+                finishAffinity();
+            } else if (wv.canGoBack()) {
+                wv.goBack();
+            } else {
+                finishAffinity();
+            }
+        } else {
+            finishAffinity();
+        }
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            finishAffinity();
+            WebView wv = getBridge().getWebView();
+            if (wv != null) {
+                String url = wv.getUrl() != null ? wv.getUrl() : "";
+                if (url.contains("/dashboard") || url.equals(initialUrl)) {
+                    finishAffinity();
+                } else if (wv.canGoBack()) {
+                    wv.goBack();
+                } else {
+                    finishAffinity();
+                }
+            } else {
+                finishAffinity();
+            }
             return true;
         }
         return super.onKeyDown(keyCode, event);

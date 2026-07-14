@@ -44,34 +44,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }, [isDark])
 
   useEffect(() => {
-    let App: any
-    try {
-      App = require('@capacitor/app')?.App
-    } catch {}
-    if (!App) return
-    let lastExitTime = 0
-    App.addListener('backButton', () => {
-      if (window.location.pathname.includes('/login') || window.location.pathname === '/') {
-        const now = Date.now()
-        if (now - lastExitTime < 2000) {
-          App.exitApp()
-        } else {
-          lastExitTime = now
-        }
-        return
-      }
-      if (window.location.pathname === '/dashboard') {
-        const now = Date.now()
-        if (now - lastExitTime < 2000) {
-          App.exitApp()
-        } else {
-          lastExitTime = now
-        }
-        return
-      }
-      window.location.href = '/dashboard'
-    })
-    return () => { App.removeAllListeners() }
+    // Back button is handled natively in MainActivity.java
   }, [])
 
   return (
