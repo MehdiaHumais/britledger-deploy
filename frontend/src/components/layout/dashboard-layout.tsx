@@ -60,16 +60,16 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         }
         return
       }
-      if (window.history.length > 1) {
-        router.back()
-      } else {
+      if (window.location.pathname === '/dashboard') {
         const now = Date.now()
         if (now - lastExitTime < 2000) {
           App.exitApp()
         } else {
           lastExitTime = now
         }
+        return
       }
+      router.replace('/dashboard')
     })
     return () => { App.removeAllListeners() }
   }, [router])
