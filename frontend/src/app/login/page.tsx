@@ -157,6 +157,18 @@ export default function LoginPage() {
     }
 
     try {
+      // Check backend to see if user already has email/password credentials
+      let hasCredentials = !!(localUser.email && localUser.password)
+      try {
+        const meRes = await api.get('/api/v1/auth/me', { timeout: 10000 })
+        const me = meRes.data?.data || meRes.data
+        if (me && !me.is_fingerprint) {
+          hasCredentials = true
+          db.users.update(localUser.id, { email: me.email || localUser.email, is_fingerprint: false })
+          localUser = { ...localUser, ...me, email: me.email || localUser.email, is_fingerprint: false }
+        }
+      } catch {}
+
       setUser({
         id: localUser.id,
         name: localUser.name,
@@ -166,7 +178,7 @@ export default function LoginPage() {
       setToken(backendToken)
       localStorage.setItem('britledger_token', backendToken)
       setIsFingerprintLoading(false)
-      if (!localUser.email || !localUser.password) {
+      if (!hasCredentials) {
         setShowCredentialsModal(true)
       } else {
         router.push('/dashboard')
