@@ -33,6 +33,23 @@ export default function LoginPage() {
       setError(reason)
       sessionStorage.removeItem('britledger_logout_reason')
     }
+
+    let lastExitTime = 0
+    let App: any
+    try {
+      App = require('@capacitor/app')?.App
+    } catch {}
+    if (App) {
+      App.addListener('backButton', () => {
+        const now = Date.now()
+        if (now - lastExitTime < 2000) {
+          App.exitApp()
+        } else {
+          lastExitTime = now
+        }
+      })
+    }
+    return () => { if (App) App.removeAllListeners() }
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -41,7 +58,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const res = await api.post('/api/v1/auth/login', { email, password }, { timeout: 15000 })
+      const res = await api.post('/api/v1/auth/login', { email: email.toLowerCase().trim(), password }, { timeout: 15000 })
       const data = res.data?.data || res.data
       if (!data?.access_token) {
         setError('Invalid email or password.')
@@ -128,12 +145,15 @@ export default function LoginPage() {
     // Local record so the app's local data works (keyed by biometric id)
     let localUser = db.users.findOne((u: any) => u.biometric_id === result.credentialId)
     if (!localUser) {
+      console.warn('[FINGERPRINT] No local user found for biometric_id:', result.credentialId)
+      console.warn('[FINGERPRINT] All local users:', db.users.getAll())
       localUser = db.users.insert({
         id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
         name: 'Fingerprint User',
         biometric_id: result.credentialId,
         is_fingerprint: true,
       })
+      console.warn('[FINGERPRINT] Created new local user:', localUser)
     }
 
     try {
@@ -141,7 +161,7 @@ export default function LoginPage() {
         id: localUser.id,
         name: localUser.name,
         email: localUser.email || '',
-        is_fingerprint: true,
+        is_fingerprint: localUser.is_fingerprint !== false,
       })
       setToken(backendToken)
       localStorage.setItem('britledger_token', backendToken)

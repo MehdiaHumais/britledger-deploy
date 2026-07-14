@@ -49,34 +49,13 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onBackPressed() {
-        WebView wv = getBridge().getWebView();
-        if (wv != null) {
-            String url = wv.getUrl() != null ? wv.getUrl() : "";
-            // If on dashboard or main pages, close app
-            if (url.contains("/dashboard") || url.contains("/login") || url.equals(initialUrl) || !wv.canGoBack()) {
-                finishAffinity();
-            } else {
-                wv.goBack();
-            }
-        } else {
-            finishAffinity();
-        }
+        finishAffinity();
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            WebView wv = getBridge().getWebView();
-            if (wv != null) {
-                String url = wv.getUrl() != null ? wv.getUrl() : "";
-                if (url.contains("/dashboard") || url.contains("/login") || url.equals(initialUrl) || !wv.canGoBack()) {
-                    finishAffinity();
-                } else {
-                    wv.goBack();
-                }
-            } else {
-                finishAffinity();
-            }
+            finishAffinity();
             return true;
         }
         return super.onKeyDown(keyCode, event);

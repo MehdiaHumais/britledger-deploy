@@ -51,6 +51,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     if (!App) return
     let lastExitTime = 0
     App.addListener('backButton', () => {
+      if (window.location.pathname.includes('/login') || window.location.pathname === '/') {
+        const now = Date.now()
+        if (now - lastExitTime < 2000) {
+          App.exitApp()
+        } else {
+          lastExitTime = now
+        }
+        return
+      }
       if (window.history.length > 1) {
         router.back()
       } else {

@@ -89,6 +89,7 @@ async def fingerprint_register(payload: FingerprintRegisterRequest, db: AsyncSes
         email=fake_email,
         full_name=payload.name,
         hashed_password=get_password_hash(str(uuid.uuid4())),
+        device_id=payload.device_id,
     )
     db.add(user)
     await db.commit()
@@ -106,6 +107,10 @@ async def fingerprint_login(payload: FingerprintLoginRequest, db: AsyncSession =
     fake_email = f"{payload.device_id}{FINGERPRINT_DOMAIN}"
     result = await db.execute(select(User).where(User.email == fake_email))
     user = result.scalars().first()
+
+    if not user:
+        result = await db.execute(select(User).where(User.device_id == payload.device_id))
+        user = result.scalars().first()
 
     if not user:
         raise HTTPException(

@@ -483,9 +483,10 @@ export default function SettingsPage() {
                       setIsSavingBackup(true)
                       if (user) {
                         try {
-                          await api.post('/api/v1/auth/fingerprint/upgrade', { email: backupEmail, password: backupPassword }, { timeout: 15000 })
-                          db.users.update(user.id, { email: backupEmail, password: backupPassword, is_fingerprint: false })
-                          setUser({ ...user, email: backupEmail, is_fingerprint: false })
+                          const normalizedEmail = backupEmail.toLowerCase().trim()
+                          await api.post('/api/v1/auth/fingerprint/upgrade', { email: normalizedEmail, password: backupPassword }, { timeout: 15000 })
+                          db.users.update(user.id, { email: normalizedEmail, password: backupPassword, is_fingerprint: false })
+                          setUser({ ...user, email: normalizedEmail, is_fingerprint: false })
                         } catch (err: any) {
                           const detail = err?.response?.data?.detail || 'Server error. Please try again.'
                           error('Failed', detail)

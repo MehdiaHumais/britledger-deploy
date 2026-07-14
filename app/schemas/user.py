@@ -60,6 +60,7 @@ class User(UserBase):
     is_active: bool
     is_fingerprint: bool = False
     role: Optional[str] = None
+    device_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

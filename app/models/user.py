@@ -17,3 +17,4 @@ class User(BaseModel):
     avatar = Column(String, nullable=True)
     is_active = Column(Boolean(), default=True)
     role = Column(Enum(UserRole), default=UserRole.ADMIN)
+    device_id = Column(String(255), nullable=True, index=True)

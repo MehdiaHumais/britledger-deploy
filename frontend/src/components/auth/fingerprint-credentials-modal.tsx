@@ -34,9 +34,10 @@ export function FingerprintCredentialsModal({ open, onClose }: Props) {
     setSaving(true)
     if (user) {
       try {
-        await api.post('/api/v1/auth/fingerprint/upgrade', { email, password }, { timeout: 15000 })
-        db.users.update(user.id, { email, password, is_fingerprint: false })
-        setUser({ ...user, email, is_fingerprint: false })
+        const normalizedEmail = email.toLowerCase().trim()
+        await api.post('/api/v1/auth/fingerprint/upgrade', { email: normalizedEmail, password }, { timeout: 15000 })
+        db.users.update(user.id, { email: normalizedEmail, password, is_fingerprint: false })
+        setUser({ ...user, email: normalizedEmail, is_fingerprint: false })
       } catch (err: any) {
         const detail = err?.response?.data?.detail || 'Server error. Please try again.'
         setError(detail)
