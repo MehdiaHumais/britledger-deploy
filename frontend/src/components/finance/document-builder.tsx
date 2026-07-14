@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Trash2, Send, Save, FileText, AlertCircle, ChevronDown, Loader2 } from 'lucide-react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Plus, Trash2, Send, Save, FileText, AlertCircle, ChevronDown, Loader2, X } from 'lucide-react'
 import { formatCurrency, calculateVAT } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import db from '@/lib/local-db'
@@ -191,120 +192,11 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
     }
   }
 
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
+
   const handlePreviewPDF = () => {
     if (!validate()) return
-
-    const previewWindow = window.open('', '_blank')
-    if (!previewWindow) {
-      warning('Popups Blocked', 'Please allow popups for this site to enable PDF preview.')
-      return
-    }
-
-    const docTitle = type === 'invoice' ? 'INVOICE' : 'QUOTATION'
-    const clientEmail = clients.find(c => c.id === selectedClientId)?.email || ''
-    const clientPhone = (clients.find(c => c.id === selectedClientId) as any)?.phone || ''
-    const now = new Date()
-    const issuedDateStr = date || now.toISOString().split('T')[0]
-
-    const itemRowsHtml = items.map(item => {
-      const lineTotal = item.quantity * item.unitPrice
-      return `
-        <tr>
-          <td>${item.description}</td>
-          <td class="center">${item.quantity}</td>
-          <td class="right">\u00a3${item.unitPrice.toFixed(2)}</td>
-          <td class="center">${item.taxRate}%</td>
-          <td class="right">\u00a3${lineTotal.toFixed(2)}</td>
-        </tr>`
-    }).join('')
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <title>${docTitle} ${documentNumber}</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:40px;font-size:14px}
-    .doc-card{background:#fff;max-width:850px;margin:0 auto;padding:50px;border-radius:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;padding-bottom:24px;border-bottom:3px solid #3b82f6}
-    .brand h1{font-size:28px;font-weight:800;color:#1e3a5f}.brand h1 span{color:#3b82f6}
-    .brand p{font-size:12px;color:#64748b;margin-top:2px}
-    .doc-label{text-align:right}.doc-label h2{font-size:32px;font-weight:900;color:#3b82f6;letter-spacing:2px}
-    .doc-label p{font-size:13px;color:#64748b;margin-top:4px}
-    .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px}
-    .meta-box h4{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-    .meta-box p{font-size:14px;color:#1e293b;margin-bottom:2px}
-    .meta-box .highlight{font-weight:700;font-size:15px}
-    table{width:100%;border-collapse:collapse;margin-bottom:24px}
-    thead tr{background:#1e3a5f;color:#fff}
-    thead th{padding:12px 14px;text-align:left;font-size:13px;font-weight:600}
-    tbody tr:nth-child(even){background:#f8fafc}
-    tbody td{padding:11px 14px;border-bottom:1px solid #e2e8f0;font-size:13px}
-    .center{text-align:center}.right{text-align:right}
-    .totals{margin-left:auto;width:280px}
-    .totals table{margin-bottom:0}
-    .totals td{padding:8px 12px;font-size:13px}
-    .totals .total-row td{font-size:16px;font-weight:800;color:#3b82f6;border-top:2px solid #3b82f6;padding-top:12px}
-    .notes{margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px;border-left:3px solid #3b82f6}
-    .notes h4{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-    .notes p{font-size:13px;color:#475569}
-    .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:11px}
-    .download-btn{position:fixed;top:20px;right:20px;background:#3b82f6;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.4);z-index:100;display:flex;align-items:center;gap:8px}
-    .download-btn:hover{background:#2563eb}
-    @media print{.download-btn{display:none!important}body{background:#fff;padding:0}.doc-card{box-shadow:none}}
-  </style>
-</head>
-<body>
-  <button class="download-btn" id="dl-btn" onclick="downloadPDF()">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-    Download PDF
-  </button>
-  <div class="doc-card" id="doc-content">
-    <div class="header">
-      <div class="brand"><h1>Brit<span>Ledger</span> AI</h1><p>Smart Bookkeeping &amp; Invoicing</p></div>
-      <div class="doc-label"><h2>${docTitle}</h2><p>${documentNumber}</p></div>
-    </div>
-    <div class="meta-grid">
-      <div><div class="meta-box"><h4>Bill To</h4><p class="highlight">${clientName}</p>${clientEmail ? `<p>${clientEmail}</p>` : ''}${clientPhone ? `<p>${clientPhone}</p>` : ''}</div></div>
-      <div><div class="meta-box"><h4>Details</h4><p>${docTitle} #: <strong>${documentNumber}</strong></p><p>Issue Date: <strong>${issuedDateStr}</strong></p>${dueDate ? `<p>Due Date: <strong style="color:#ef4444">${dueDate}</strong></p>` : ''}</div></div>
-    </div>
-    <table>
-      <thead><tr><th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="center">VAT %</th><th class="right">Amount</th></tr></thead>
-      <tbody>${itemRowsHtml}</tbody>
-    </table>
-    <div class="totals"><table>
-      <tr><td style="color:#64748b">Subtotal</td><td class="right">\u00a3${subtotal.toFixed(2)}</td></tr>
-      <tr><td style="color:#64748b">VAT</td><td class="right">\u00a3${totalTax.toFixed(2)}</td></tr>
-      ${discount > 0 ? `<tr><td style="color:#64748b">Discount</td><td class="right" style="color:#ef4444">-\u00a3${discount.toFixed(2)}</td></tr>` : ''}
-      <tr class="total-row"><td>Total Due</td><td class="right">\u00a3${total.toFixed(2)}</td></tr>
-    </table></div>
-    ${notes ? `<div class="notes"><h4>Notes / Terms</h4><p>${notes}</p></div>` : ''}
-    <div class="footer"><p>Generated by BritLedger AI &bull; ${now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p><p style="margin-top:4px">Thank you for your business!</p></div>
-  </div>
-  <script>
-    function downloadPDF() {
-      const btn = document.getElementById('dl-btn');
-      btn.style.display = 'none';
-      const element = document.getElementById('doc-content');
-      const opt = {
-        margin: 10,
-        filename: '${docTitle}_${documentNumber}.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(element).save().then(() => {
-        btn.style.display = 'flex';
-      });
-    }
-  </script>
-</body></html>`
-
-    previewWindow.document.open()
-    previewWindow.document.write(html)
-    previewWindow.document.close()
+    setPdfPreviewOpen(true)
   }
 
   return (
@@ -517,6 +409,87 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
           </CardContent>
         </Card>
       </div>
+
+      {pdfPreviewOpen && (
+        <Dialog open={pdfPreviewOpen} onOpenChange={() => setPdfPreviewOpen(false)}>
+          <DialogContent className="max-w-3xl w-[95vw] h-[90vh] max-h-[90vh]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{type === 'invoice' ? 'Invoice' : 'Quotation'} {documentNumber}</h2>
+              <Button size="sm" variant="ghost" onClick={() => setPdfPreviewOpen(false)}><X size={18} /></Button>
+            </div>
+            <iframe
+              srcDoc={(() => {
+                const docTitle = type === 'invoice' ? 'INVOICE' : 'QUOTATION'
+                const clientEmail = clients.find(c => c.id === selectedClientId)?.email || ''
+                const clientPhone = (clients.find(c => c.id === selectedClientId) as any)?.phone || ''
+                const now = new Date()
+                const issuedDateStr = date || now.toISOString().split('T')[0]
+                const itemRowsHtml = items.map(item => {
+                  const lineTotal = item.quantity * item.unitPrice
+                  return `<tr>
+                    <td>${item.description}</td>
+                    <td class="center">${item.quantity}</td>
+                    <td class="right">\u00a3${item.unitPrice.toFixed(2)}</td>
+                    <td class="center">${item.taxRate}%</td>
+                    <td class="right">\u00a3${lineTotal.toFixed(2)}</td>
+                  </tr>`
+                }).join('')
+                return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>${docTitle} ${documentNumber}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px}
+  .doc-card{background:#fff;max-width:800px;margin:0 auto;padding:30px;border-radius:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #3b82f6}
+  .brand h1{font-size:22px;font-weight:800;color:#1e3a5f}.brand h1 span{color:#3b82f6}
+  .doc-label{text-align:right}.doc-label h2{font-size:26px;font-weight:900;color:#3b82f6;letter-spacing:2px}
+  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+  .meta-box h4{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+  .meta-box p{font-size:13px;color:#1e293b;margin-bottom:2px}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px}
+  thead tr{background:#1e3a5f;color:#fff}
+  thead th{padding:10px 12px;text-align:left;font-size:12px;font-weight:600}
+  tbody tr:nth-child(even){background:#f8fafc}
+  tbody td{padding:9px 12px;border-bottom:1px solid #e2e8f0;font-size:12px}
+  .center{text-align:center}.right{text-align:right}
+  .totals{margin-left:auto;width:240px}
+  .totals td{padding:6px 12px;font-size:12px}
+  .totals .total-row td{font-size:15px;font-weight:800;color:#3b82f6;border-top:2px solid #3b82f6;padding-top:10px}
+  .notes{margin-top:24px;padding:12px;background:#f8fafc;border-radius:8px;border-left:3px solid #3b82f6}
+  .footer{margin-top:30px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:10px}
+  @media print{body{background:#fff;padding:0}.doc-card{box-shadow:none}}
+</style></head><body>
+  <div class="doc-card">
+    <div class="header">
+      <div class="brand"><h1>Brit<span>Ledger</span> AI</h1></div>
+      <div class="doc-label"><h2>${docTitle}</h2><p>${documentNumber}</p></div>
+    </div>
+    <div class="meta-grid">
+      <div><div class="meta-box"><h4>Bill To</h4><p class="highlight">${clientName}</p>${clientEmail ? `<p>${clientEmail}</p>` : ''}${clientPhone ? `<p>${clientPhone}</p>` : ''}</div></div>
+      <div><div class="meta-box"><h4>Details</h4><p>${docTitle} #: <strong>${documentNumber}</strong></p><p>Issue Date: <strong>${issuedDateStr}</strong></p>${dueDate ? `<p>Due Date: <strong style="color:#ef4444">${dueDate}</strong></p>` : ''}</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="center">VAT %</th><th class="right">Amount</th></tr></thead>
+      <tbody>${itemRowsHtml}</tbody>
+    </table>
+    <div class="totals"><table>
+      <tr><td style="color:#64748b">Subtotal</td><td class="right">\u00a3${subtotal.toFixed(2)}</td></tr>
+      <tr><td style="color:#64748b">VAT</td><td class="right">\u00a3${totalTax.toFixed(2)}</td></tr>
+      ${discount > 0 ? `<tr><td style="color:#64748b">Discount</td><td class="right" style="color:#ef4444">-\u00a3${discount.toFixed(2)}</td></tr>` : ''}
+      <tr class="total-row"><td>Total Due</td><td class="right">\u00a3${total.toFixed(2)}</td></tr>
+    </table></div>
+    ${notes ? `<div class="notes"><h4>Notes / Terms</h4><p>${notes}</p></div>` : ''}
+    <div class="footer"><p>Generated by BritLedger AI</p></div>
+  </div>
+</body></html>`
+              })()}
+              className="w-full h-full border-0 rounded-lg"
+              style={{ minHeight: '70vh' }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

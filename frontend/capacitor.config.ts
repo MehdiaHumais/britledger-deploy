@@ -5,13 +5,10 @@ const config: CapacitorConfig = {
   appName: 'BritLedger',
   webDir: 'out',
   server: {
-    androidScheme: 'https',
-    iosScheme: 'https',
-    allowNavigation: ['*'],
+    url: 'https://ledger.britsyncai.com',
     cleartext: true,
   },
   android: {
-    allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: true,
   },

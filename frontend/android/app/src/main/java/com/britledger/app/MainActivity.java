@@ -6,76 +6,41 @@ import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
 import android.view.KeyEvent;
 import com.getcapacitor.BridgeActivity;
-import com.getcapacitor.Plugin;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getBridge().getWebView().setWebViewClient(new WebViewClient() {
+        WebView wv = getBridge().getWebView();
+
+        wv.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                // Handle PDF URLs within WebView - don't let external apps hijack
-                if (url.contains(".pdf") || url.contains("/pdf") || url.contains("blob:")) {
-                    view.loadUrl(url);
-                    return true;
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    return false;
                 }
-                // Handle all URLs within WebView - stop external app hijacking
                 view.loadUrl(url);
                 return true;
             }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                // Prevent external navigation
-                view.evaluateJavascript(
-                    "document.querySelectorAll('a[target=\"_blank\"]').forEach(function(a) {" +
-                    "   a.removeAttribute('target');" +
-                    "   a.addEventListener('click', function(e) {" +
-                    "       e.preventDefault();" +
-                    "       window.location.href = a.href;" +
-                    "   });" +
-                    "});" +
-                    "document.querySelectorAll('[href]').forEach(function(a) {" +
-                    "   if(a.href && !a.href.startsWith('http')) { return; }" +
-                    "   a.addEventListener('click', function(e) {" +
-                    "       if(a.href && a.href !== window.location.href) {" +
-                    "           e.preventDefault();" +
-                    "           window.location.href = a.href;" +
-                    "       }" +
-                    "   });" +
-                    "});" +
-                    "if(window.opener) { window.opener = null; }",
-                    null
-                );
-            }
         });
 
-        getBridge().getWebView().getSettings().setAllowFileAccess(true);
-        getBridge().getWebView().getSettings().setAllowContentAccess(true);
-        getBridge().getWebView().getSettings().setDomStorageEnabled(true);
-        getBridge().getWebView().getSettings().setJavaScriptEnabled(true);
-        getBridge().getWebView().getSettings().setMixedContentMode(0);
-        getBridge().getWebView().getSettings().setUseWideViewPort(true);
-        getBridge().getWebView().getSettings().setLoadWithOverviewMode(true);
-        getBridge().getWebView().getSettings().setBuiltInZoomControls(false);
-        getBridge().getWebView().getSettings().setSupportMultipleWindows(false);
+        wv.getSettings().setAllowFileAccess(true);
+        wv.getSettings().setAllowContentAccess(true);
+        wv.getSettings().setDomStorageEnabled(true);
+        wv.getSettings().setJavaScriptEnabled(true);
+        wv.getSettings().setMixedContentMode(0);
+        wv.getSettings().setUseWideViewPort(true);
+        wv.getSettings().setLoadWithOverviewMode(true);
+        wv.getSettings().setBuiltInZoomControls(false);
+        wv.getSettings().setSupportMultipleWindows(false);
     }
 
     @Override
     public void onBackPressed() {
         WebView wv = getBridge().getWebView();
         if (wv != null && wv.canGoBack()) {
-            String url = wv.getUrl();
-            // If on login page or could be first page, close the app
-            if (url != null && (url.contains("/login") || url.contains("signin"))) {
-                finishAffinity();
-                return;
-            }
-            // Try to go back in WebView history
             wv.goBack();
         } else {
             finishAffinity();
@@ -87,11 +52,6 @@ public class MainActivity extends BridgeActivity {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             WebView wv = getBridge().getWebView();
             if (wv != null && wv.canGoBack()) {
-                String url = wv.getUrl();
-                if (url != null && (url.contains("/login") || url.contains("signin"))) {
-                    finishAffinity();
-                    return true;
-                }
                 wv.goBack();
                 return true;
             } else {
