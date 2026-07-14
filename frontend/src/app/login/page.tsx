@@ -33,23 +33,6 @@ export default function LoginPage() {
       setError(reason)
       sessionStorage.removeItem('britledger_logout_reason')
     }
-
-    let lastExitTime = 0
-    let App: any
-    try {
-      App = require('@capacitor/app')?.App
-    } catch {}
-    if (App) {
-      App.addListener('backButton', () => {
-        const now = Date.now()
-        if (now - lastExitTime < 2000) {
-          App.exitApp()
-        } else {
-          lastExitTime = now
-        }
-      })
-    }
-    return () => { if (App) App.removeAllListeners() }
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {

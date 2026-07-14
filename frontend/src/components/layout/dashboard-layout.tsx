@@ -69,7 +69,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         }
         return
       }
-      router.replace('/dashboard')
+      router.push('/dashboard')
     })
     return () => { App.removeAllListeners() }
   }, [router])
