@@ -481,8 +481,16 @@ export default function SettingsPage() {
                       }
                       setIsSavingBackup(true)
                       if (user) {
-                        db.users.update(user.id, { email: backupEmail, password: backupPassword, is_fingerprint: false })
-                        setUser({ ...user, email: backupEmail, is_fingerprint: false })
+                        try {
+                          await api.post('/api/v1/auth/fingerprint/upgrade', { email: backupEmail, password: backupPassword }, { timeout: 15000 })
+                          db.users.update(user.id, { email: backupEmail, password: backupPassword, is_fingerprint: false })
+                          setUser({ ...user, email: backupEmail, is_fingerprint: false })
+                        } catch (err: any) {
+                          const detail = err?.response?.data?.detail || 'Server error. Please try again.'
+                          error('Failed', detail)
+                          setIsSavingBackup(false)
+                          return
+                        }
                       }
                       setBackupEmail('')
                       setBackupPassword('')

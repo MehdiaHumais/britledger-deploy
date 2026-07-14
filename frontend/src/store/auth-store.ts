@@ -44,7 +44,6 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setToken: (token) => set({ token, isAuthenticated: !!token }),
       logout: () => {
-        clearLocalDbData()
         set({ user: null, token: null, isAuthenticated: false })
       },
     }),
