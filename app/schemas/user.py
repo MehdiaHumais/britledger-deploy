@@ -33,7 +33,7 @@ class TokenResponse(BaseModel):
 
 
 class UserBase(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     full_name: Optional[str] = None
     avatar: Optional[str] = None
 
