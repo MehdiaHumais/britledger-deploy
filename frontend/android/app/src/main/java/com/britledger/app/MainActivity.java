@@ -8,6 +8,8 @@ import android.view.KeyEvent;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private String initialUrl = "";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -23,6 +25,14 @@ public class MainActivity extends BridgeActivity {
                 }
                 view.loadUrl(url);
                 return true;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (initialUrl.isEmpty()) {
+                    initialUrl = url;
+                }
             }
         });
 
@@ -40,8 +50,14 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onBackPressed() {
         WebView wv = getBridge().getWebView();
-        if (wv != null && wv.canGoBack()) {
-            wv.goBack();
+        if (wv != null) {
+            String url = wv.getUrl() != null ? wv.getUrl() : "";
+            // If on dashboard or main pages, close app
+            if (url.contains("/dashboard") || url.contains("/login") || url.equals(initialUrl) || !wv.canGoBack()) {
+                finishAffinity();
+            } else {
+                wv.goBack();
+            }
         } else {
             finishAffinity();
         }
@@ -51,13 +67,17 @@ public class MainActivity extends BridgeActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             WebView wv = getBridge().getWebView();
-            if (wv != null && wv.canGoBack()) {
-                wv.goBack();
-                return true;
+            if (wv != null) {
+                String url = wv.getUrl() != null ? wv.getUrl() : "";
+                if (url.contains("/dashboard") || url.contains("/login") || url.equals(initialUrl) || !wv.canGoBack()) {
+                    finishAffinity();
+                } else {
+                    wv.goBack();
+                }
             } else {
                 finishAffinity();
-                return true;
             }
+            return true;
         }
         return super.onKeyDown(keyCode, event);
     }
