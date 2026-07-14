@@ -113,7 +113,7 @@ export default function LoginPage() {
       if (status === 404) {
         setError(detail || 'No fingerprint account found. Please register first.')
       } else {
-        setError(detail || 'Server error. Please try again later.')
+        setError(detail ? `[${status}] ${detail}` : `Connection error (${err?.message || status || 'timeout'}). Check your internet and server.`)
       }
       setIsFingerprintLoading(false)
       return
@@ -201,7 +201,7 @@ export default function LoginPage() {
       if (status === 409) {
         setError('This device is already registered. Use "Fingerprint Login" instead.')
       } else {
-        setError(detail || 'Server error. Please try again later.')
+        setError(detail ? `[${status}] ${detail}` : `Connection error (${err?.message || status || 'timeout'}). Check your internet and server.`)
       }
       setIsFingerprintLoading(false)
       return
