@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/auth-store'
 import { useToast } from '@/components/ui/toast'
 import db from '@/lib/local-db'
 import { userApi } from '@/lib/api'
+import api from '@/lib/api'
 import { PaymentSettings } from '@/components/settings/payment-settings'
 import { AdminUsers } from '@/components/settings/admin-users'
 
