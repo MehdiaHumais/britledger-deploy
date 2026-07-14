@@ -69,10 +69,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         }
         return
       }
-      router.push('/dashboard')
+      window.location.href = '/dashboard'
     })
     return () => { App.removeAllListeners() }
-  }, [router])
+  }, [])
 
   return (
     <AuthGuard>
