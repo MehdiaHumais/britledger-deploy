@@ -6,10 +6,34 @@
  * with zero external dependencies.
  */
 
+function getActiveUserId(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem('britledger-auth-storage')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const userId = parsed?.state?.user?.id
+      if (userId) return userId
+    }
+  } catch (e) {
+    console.error('[DB] Error parsing auth store:', e)
+  }
+  return null
+}
+
 function getStore<T>(key: string): T[] {
   if (typeof window === 'undefined') return []
   try {
-    const raw = localStorage.getItem(`britledger_${key}`)
+    const userId = getActiveUserId()
+
+    // If no userId, return empty — never read unscoped data
+    if (key !== 'users' && key !== 'device_id' && !userId) return []
+
+    const storageKey = (key !== 'users' && key !== 'device_id' && userId)
+      ? `britledger_${userId}_${key}`
+      : `britledger_${key}`
+
+    const raw = localStorage.getItem(storageKey)
     return raw ? JSON.parse(raw) : []
   } catch {
     return []
@@ -18,7 +42,14 @@ function getStore<T>(key: string): T[] {
 
 function setStore<T>(key: string, data: T[]): void {
   if (typeof window === 'undefined') return
-  localStorage.setItem(`britledger_${key}`, JSON.stringify(data))
+  let storageKey = `britledger_${key}`
+  const userId = getActiveUserId()
+
+  if (key !== 'users' && key !== 'device_id' && userId) {
+    storageKey = `britledger_${userId}_${key}`
+  }
+
+  localStorage.setItem(storageKey, JSON.stringify(data))
 }
 
 function genId(): string {

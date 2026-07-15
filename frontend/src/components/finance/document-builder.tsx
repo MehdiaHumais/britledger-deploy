@@ -208,36 +208,60 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
     }).join('')
     const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${docTitle} ${documentNumber}</title><style>
       *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px}
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px}
       .doc-card{background:#fff;max-width:800px;margin:0 auto;padding:30px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
-      .header{display:flex;justify-content:space-between;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #3b82f6}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #3b82f6}
       .brand h1{font-size:22px;font-weight:800;color:#1e3a5f}.brand h1 span{color:#3b82f6}
-      .doc-label h2{font-size:26px;font-weight:900;color:#3b82f6;letter-spacing:2px}
+      .doc-label{text-align:right}.doc-label h2{font-size:26px;font-weight:900;color:#3b82f6;letter-spacing:2px}
+      .doc-label p{font-size:12px;color:#64748b;margin-top:4px}
+      .status{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;margin-top:5px}
       .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
-      .meta-box h4{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px}
-      table{width:100%;border-collapse:collapse;margin-bottom:20px}
-      thead tr{background:#1e3a5f;color:#fff}thead th{padding:10px 12px;text-align:left;font-size:12px}
-      tbody tr:nth-child(even){background:#f8fafc}tbody td{padding:9px 12px;border-bottom:1px solid #e2e8f0;font-size:12px}
+      .meta-box h4{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+      .meta-box p{font-size:13px;color:#1e293b;margin-bottom:2px}
+      .table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:20px}
+      table{width:100%;border-collapse:collapse}
+      thead tr{background:#1e3a5f;color:#fff}
+      thead th{padding:10px 12px;text-align:left;font-size:12px;font-weight:600;white-space:nowrap}
+      tbody tr:nth-child(even){background:#f8fafc}
+      tbody td{padding:9px 12px;border-bottom:1px solid #e2e8f0;font-size:12px}
       .center{text-align:center}.right{text-align:right}
-      .totals{margin-left:auto;width:240px}.totals td{padding:6px 12px;font-size:12px}
-      .total-row td{font-size:15px;font-weight:800;color:#3b82f6;border-top:2px solid #3b82f6;padding-top:10px}
+      .totals-container{display:flex;justify-content:flex-end;margin-top:10px}
+      .totals{width:240px}
+      .totals td{padding:6px 12px;font-size:12px}
+      .totals .total-row td{font-size:15px;font-weight:800;color:#3b82f6;border-top:2px solid #3b82f6;padding-top:10px}
       .notes{margin-top:24px;padding:12px;background:#f8fafc;border-radius:8px;border-left:3px solid #3b82f6}
+      .notes h4{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
       .footer{margin-top:30px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:10px}
+      @media (max-width: 640px) {
+        body{padding:10px}
+        .doc-card{padding:16px;border-radius:4px}
+        .header{flex-direction:column;align-items:stretch;gap:12px;margin-bottom:20px}
+        .doc-label{text-align:left}
+        .meta-grid{grid-template-columns:1fr;gap:16px;margin-bottom:20px}
+        .totals-container{justify-content:stretch}
+        .totals{width:100%}
+        tbody td, thead th{padding:8px;font-size:11px}
+      }
+      @media print{body{background:#fff;padding:0}.doc-card{box-shadow:none}}
     </style></head><body><div class="doc-card">
       <div class="header"><div class="brand"><h1>Brit<span>Ledger</span> AI</h1></div><div class="doc-label"><h2>${docTitle}</h2></div></div>
       <div class="meta-grid">
         <div><div class="meta-box"><h4>Bill To</h4><p><strong>${clientName}</strong></p>${clientEmail ? '<p>'+clientEmail+'</p>' : ''}${clientPhone ? '<p>'+clientPhone+'</p>' : ''}</div></div>
         <div><div class="meta-box"><h4>Details</h4><p>Issue Date: <strong>${issuedDateStr}</strong></p>${dueDate ? '<p>Due: <strong>'+dueDate+'</strong></p>' : ''}</div></div>
       </div>
-      <table><thead><tr><th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="center">VAT%</th><th class="right">Amount</th></tr></thead>
-        <tbody>${itemRowsHtml}</tbody>
-      </table>
-      <div class="totals"><table>
-        <tr><td>Subtotal</td><td class="right">£${subtotal.toFixed(2)}</td></tr>
-        <tr><td>VAT</td><td class="right">£${totalTax.toFixed(2)}</td></tr>
-        ${discount > 0 ? '<tr><td>Discount</td><td class="right" style="color:#ef4444">-£'+discount.toFixed(2)+'</td></tr>' : ''}
-        <tr class="total-row"><td>Total</td><td class="right">£${total.toFixed(2)}</td></tr>
-      </table></div>
+      <div class="table-responsive">
+        <table><thead><tr><th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="center">VAT%</th><th class="right">Amount</th></tr></thead>
+          <tbody>${itemRowsHtml}</tbody>
+        </table>
+      </div>
+      <div class="totals-container">
+        <div class="totals"><table>
+          <tr><td>Subtotal</td><td class="right">£${subtotal.toFixed(2)}</td></tr>
+          <tr><td>VAT</td><td class="right">£${totalTax.toFixed(2)}</td></tr>
+          ${discount > 0 ? '<tr><td>Discount</td><td class="right" style="color:#ef4444">-£'+discount.toFixed(2)+'</td></tr>' : ''}
+          <tr class="total-row"><td>Total</td><td class="right">£${total.toFixed(2)}</td></tr>
+        </table></div>
+      </div>
       ${notes ? '<div class="notes"><h4>Notes</h4><p>'+notes+'</p></div>' : ''}
       <div class="footer"><p>Generated by BritLedger AI</p></div>
     </div></body></html>`
@@ -458,16 +482,17 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
 
       {pdfPreviewOpen && (
         <Dialog open={pdfPreviewOpen} onOpenChange={() => setPdfPreviewOpen(false)}>
-          <DialogContent className="max-w-4xl w-[95vw]">
-            <div className="flex justify-between items-center mb-4">
+          <DialogContent className="max-w-4xl w-[95vw] h-[90vh] max-h-[90vh] flex flex-col p-4 sm:p-6">
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
               <h2 className="text-xl font-bold">{type === 'invoice' ? 'Invoice' : 'Quotation'} {documentNumber}</h2>
               <Button size="sm" variant="ghost" onClick={() => setPdfPreviewOpen(false)}><X size={18} /></Button>
             </div>
-            <div
-              className="w-full overflow-auto border-0 rounded-lg"
-              style={{ minHeight: '70vh', backgroundColor: 'white', color: '#1e293b' }}
-              dangerouslySetInnerHTML={{ __html: pdfHtml }}
-            />
+            <div className="flex-1 w-full min-h-0 relative">
+              <iframe
+                srcDoc={pdfHtml}
+                className="w-full h-full border-0 rounded-lg absolute inset-0 bg-white"
+              />
+            </div>
           </DialogContent>
         </Dialog>
       )}

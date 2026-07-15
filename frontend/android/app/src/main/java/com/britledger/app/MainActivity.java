@@ -1,4 +1,4 @@
-﻿package com.britledger.app;
+package com.britledger.app;
 
 import android.os.Bundle;
 import android.webkit.WebView;
@@ -47,17 +47,16 @@ public class MainActivity extends BridgeActivity {
         wv.getSettings().setSupportMultipleWindows(false);
     }
 
-    @Override
-    public void onBackPressed() {
+    private void handleBackPress() {
         WebView wv = getBridge().getWebView();
         if (wv != null) {
             String url = wv.getUrl() != null ? wv.getUrl() : "";
-            if (url.contains("/dashboard") || url.equals(initialUrl)) {
+            if (url.contains("/dashboard") || url.contains("/login") || url.contains("/register") || url.contains("/forgot-password") || url.equals(initialUrl)) {
                 finishAffinity();
             } else if (wv.canGoBack()) {
                 wv.goBack();
             } else {
-                finishAffinity();
+                wv.evaluateJavascript("window.location.href = '/dashboard';", null);
             }
         } else {
             finishAffinity();
@@ -65,21 +64,14 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        handleBackPress();
+    }
+
+    @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            WebView wv = getBridge().getWebView();
-            if (wv != null) {
-                String url = wv.getUrl() != null ? wv.getUrl() : "";
-                if (url.contains("/dashboard") || url.equals(initialUrl)) {
-                    finishAffinity();
-                } else if (wv.canGoBack()) {
-                    wv.goBack();
-                } else {
-                    finishAffinity();
-                }
-            } else {
-                finishAffinity();
-            }
+            handleBackPress();
             return true;
         }
         return super.onKeyDown(keyCode, event);

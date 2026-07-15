@@ -27,9 +27,11 @@ interface AuthState {
 export function clearLocalDbData(): void {
   if (typeof window === 'undefined') return
   const keys = Object.keys(localStorage)
+  // Remove ALL britledger_ keys (including scoped ones like britledger_{userId}_clients)
+  // Keep only the auth state itself, the shared users table, and device_id
   const keep = new Set(['britledger-auth-storage', 'britledger_users', 'britledger_device_id'])
   for (const key of keys) {
-    if (key.startsWith('britledger_') && !keep.has(key)) {
+    if ((key.startsWith('britledger_') || key.startsWith('britledger-')) && !keep.has(key)) {
       localStorage.removeItem(key)
     }
   }
