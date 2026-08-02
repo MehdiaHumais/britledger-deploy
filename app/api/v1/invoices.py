@@ -143,6 +143,21 @@ async def update_invoice(
     return APIResponse(message="Invoice updated.", data=data)
 
 
+@router.delete(
+    "/{invoice_id}",
+    response_model=APIResponse,
+    summary="Delete an invoice",
+)
+async def delete_invoice(
+    invoice_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    svc = InvoiceService(db, current_user.id)
+    await svc.delete(invoice_id)
+    return APIResponse(message="Invoice deleted.")
+
+
 @router.post(
     "/{invoice_id}/send",
     response_model=APIResponse[InvoiceResponse],

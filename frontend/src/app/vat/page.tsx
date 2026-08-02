@@ -41,7 +41,12 @@ export default function VATPage() {
     setLoading(false)
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    Promise.all([
+      db.invoices.syncFromApi(),
+      db.expenses.syncFromApi(),
+    ]).finally(() => loadData())
+  }, [])
 
   const vatDue = vatOnSales
   const netVat = vatDue - vatReclaimable

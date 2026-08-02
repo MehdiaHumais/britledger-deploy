@@ -23,9 +23,11 @@ export default function InvoicesPage() {
   const [deletingInvoice, setDeletingInvoice] = useState<any>(null)
 
   const load = () => setInvoices(db.invoices.getAll('created_at', false))
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    db.invoices.syncFromApi().finally(() => load())
+  }, [])
 
-  const handleSave = (data: any) => {
+  const handleSave = async (data: any) => {
     const payload: any = {
       number: data.documentNumber,
       client: data.clientName,
@@ -35,7 +37,9 @@ export default function InvoicesPage() {
       amount: data.total,
       subtotal: data.subtotal,
       tax: data.totalTax,
-      status: editingInvoice ? editingInvoice.status : 'Sent',
+      status: data.status || (editingInvoice ? editingInvoice.status : 'Sent'),
+      paid: data.paid,
+      advancePayment: data.advancePayment || 0,
       items: data.items,
       notes: data.notes
     }
@@ -44,10 +48,10 @@ export default function InvoicesPage() {
     }
 
     if (editingInvoice) {
-      db.invoices.update(editingInvoice.id, payload)
+      await db.invoices.modifyRecord(editingInvoice.id, payload)
       success('Invoice Updated', `${data.documentNumber} has been updated successfully.`)
     } else {
-      db.invoices.insert(payload)
+      await db.invoices.createRecord(payload)
       db.notifications.insert({
         title: 'Invoice Created & Sent',
         message: `Invoice ${data.documentNumber} has been sent to the client.`,
@@ -77,8 +81,8 @@ export default function InvoicesPage() {
   const statusVariant = (s: string) =>
     s === 'Paid' ? 'default' : s === 'Overdue' ? 'destructive' : s === 'Draft' ? 'secondary' : 'outline'
 
-  const markAsPaid = (inv: any) => {
-    db.invoices.update(inv.id, { status: 'Paid' })
+  const markAsPaid = async (inv: any) => {
+    await db.invoices.modifyRecord(inv.id, { status: 'Paid' })
     db.notifications.insert({
       title: 'Payment Received',
       message: `Payment confirmed for invoice ${inv.number}.`,
@@ -89,8 +93,8 @@ export default function InvoicesPage() {
     success('Marked as Paid', 'Invoice status updated to Paid.')
   }
 
-  const handleDeleteInvoice = (inv: any) => {
-    db.invoices.delete(inv.id)
+  const handleDeleteInvoice = async (inv: any) => {
+    await db.invoices.removeRecord(inv.id)
     db.vat_returns.getAll().forEach(v => {
       if (v.invoiceId === inv.id || v.invoiceNumber === inv.number) {
         db.vat_returns.delete(v.id)
@@ -159,7 +163,12 @@ export default function InvoicesPage() {
                             <TableCell className="hidden sm:table-cell">{inv.client}</TableCell>
                             <TableCell className="hidden sm:table-cell">{formatDate(inv.date)}</TableCell>
                             <TableCell className="hidden md:table-cell text-red-600 dark:text-red-400 font-medium">{formatDate(inv.dueDate)}</TableCell>
-                            <TableCell>{formatCurrency(inv.amount)}</TableCell>
+                            <TableCell>
+                              <div>{formatCurrency(inv.amount)}</div>
+                              {inv.advancePayment > 0 && (
+                                <div className="text-xs text-emerald-600 font-medium">Due: {formatCurrency(Math.max(0, inv.amount - inv.advancePayment))}</div>
+                              )}
+                            </TableCell>
                             <TableCell><Badge variant={statusVariant(inv.status) as any}>{inv.status}</Badge></TableCell>
                             <TableCell className="text-right">
                             <DropdownMenu>

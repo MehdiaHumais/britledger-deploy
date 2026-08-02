@@ -40,6 +40,8 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
   ])
   const [notes, setNotes] = useState(initialData?.notes || '')
   const [discount, setDiscount] = useState(initialData?.discount || 0)
+  const [paid, setPaid] = useState(initialData?.status === 'Paid' || initialData?.paid === true)
+  const [advancePayment, setAdvancePayment] = useState(Number(initialData?.advancePayment) || 0)
   const [formError, setFormError] = useState('')
 
   // Load real clients from local-db
@@ -78,6 +80,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
   const totalTax = items.reduce((s, i) => s + calculateVAT(i.quantity * i.unitPrice, i.taxRate), 0)
   const total = Math.max(0, subtotal + totalTax - discount)
+  const balanceDue = Math.max(0, total - advancePayment)
 
   const validate = (): boolean => {
     if (!selectedClientId) {
@@ -104,7 +107,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
     if (!validate()) return
     setIsSaving(true)
     setTimeout(() => {
-      onSave({ documentNumber, clientName, clientId: selectedClientId, items, total, subtotal, totalTax, discount, notes, date, dueDate })
+      onSave({ documentNumber, clientName, clientId: selectedClientId, items, total, subtotal, totalTax, discount, notes, date, dueDate, paid, advancePayment, status: paid ? 'Paid' : 'Sent' })
       setIsSaving(false)
     }, 600)
   }
@@ -156,6 +159,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
             subtotal: subtotal,
             tax: totalTax,
             currency: 'GBP',
+            advance_payment: type === 'invoice' ? advancePayment : 0,
             items: items.map(i => ({
               description: i.description,
               quantity: i.quantity,
@@ -167,15 +171,25 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
          backendId = saveRes.data.data.id
       }
 
+      // 3. Ensure advance payment is stored on the backend invoice
+      if (type === 'invoice' && backendId) {
+        try {
+          await api.update(backendId, { advance_payment: advancePayment })
+        } catch (updateErr) {
+          console.warn('Failed to sync advance payment:', updateErr)
+        }
+      }
+
       const response = await api.send(backendId, {
         to_email: email,
         subject: `Your ${type} from BritLedger AI (${documentNumber})`,
-        personal_message: `Hello ${clientName}, please find your ${type} details below.`
+        personal_message: `Hello ${clientName}, please find your ${type} details below.`,
+        ...(type === 'invoice' ? { include_payment_link: !paid, status: paid ? 'PAID' : 'SENT' } : {}),
       })
 
       if (response.data.success || response.status === 200) {
         success('Email Sent', `Professional ${type} sent to ${email}.`)
-        onSave({ documentNumber, clientName, clientId: selectedClientId, items, total, subtotal, totalTax, discount, notes, date, dueDate, status: 'Sent', backendId })
+        onSave({ documentNumber, clientName, clientId: selectedClientId, items, total, subtotal, totalTax, discount, notes, date, dueDate, status: paid ? 'Paid' : 'Sent', backendId, paid, advancePayment })
       } else {
         setFormError(`Failed to send email via backend.`)
       }
@@ -247,7 +261,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
       <div class="header"><div class="brand"><h1>Brit<span>Ledger</span> AI</h1></div><div class="doc-label"><h2>${docTitle}</h2></div></div>
       <div class="meta-grid">
         <div><div class="meta-box"><h4>Bill To</h4><p><strong>${clientName}</strong></p>${clientEmail ? '<p>'+clientEmail+'</p>' : ''}${clientPhone ? '<p>'+clientPhone+'</p>' : ''}</div></div>
-        <div><div class="meta-box"><h4>Details</h4><p>Issue Date: <strong>${issuedDateStr}</strong></p>${dueDate ? '<p>Due: <strong>'+dueDate+'</strong></p>' : ''}</div></div>
+        <div><div class="meta-box"><h4>Details</h4><p>Issue Date: <strong>${issuedDateStr}</strong></p>${dueDate ? '<p>Due: <strong>'+dueDate+'</strong></p>' : ''}${type === 'invoice' ? '<p>Status: <strong style="color:' + (paid ? '#16a34a' : '#ef4444') + '">' + (paid ? 'PAID' : 'UNPAID') + '</strong></p>' : ''}</div></div>
       </div>
       <div class="table-responsive">
         <table><thead><tr><th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="center">VAT%</th><th class="right">Amount</th></tr></thead>
@@ -260,6 +274,8 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
           <tr><td>VAT</td><td class="right">£${totalTax.toFixed(2)}</td></tr>
           ${discount > 0 ? '<tr><td>Discount</td><td class="right" style="color:#ef4444">-£'+discount.toFixed(2)+'</td></tr>' : ''}
           <tr class="total-row"><td>Total</td><td class="right">£${total.toFixed(2)}</td></tr>
+          ${type === 'invoice' && advancePayment > 0 ? '<tr><td>Advance Paid</td><td class="right" style="color:#16a34a">-£'+advancePayment.toFixed(2)+'</td></tr>' : ''}
+          ${type === 'invoice' && advancePayment > 0 ? '<tr class="total-row" style="color:#16a34a"><td>Balance Due</td><td class="right">£'+balanceDue.toFixed(2)+'</td></tr>' : ''}
         </table></div>
       </div>
       ${notes ? '<div class="notes"><h4>Notes</h4><p>'+notes+'</p></div>' : ''}
@@ -346,6 +362,41 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
                 <label className="text-sm font-medium">Due Date</label>
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </div>
+
+              {type === 'invoice' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Payment Status</label>
+                  <div className="flex rounded-md border border-input p-1 bg-muted/50">
+                    <button
+                      type="button"
+                      onClick={() => setPaid(false)}
+                      className={`flex-1 h-9 rounded text-sm font-medium transition-colors ${
+                        !paid
+                          ? 'bg-background shadow-sm text-foreground border'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Unpaid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaid(true)}
+                      className={`flex-1 h-9 rounded text-sm font-medium transition-colors ${
+                        paid
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Paid
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {paid
+                      ? 'Invoice sent to client without a payment link.'
+                      : 'A payment link will be included when sent to the client.'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Line items */}
@@ -460,10 +511,35 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
                 onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} 
               />
             </div>
+            {type === 'invoice' && (
+              <div className="flex justify-between items-center text-sm pt-2">
+                <span className="text-muted-foreground">Advance Payment (£)</span>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  step="0.01"
+                  className="w-20 sm:w-24 h-8 text-right" 
+                  value={advancePayment} 
+                  onChange={(e) => setAdvancePayment(parseFloat(e.target.value) || 0)} 
+                />
+              </div>
+            )}
             <div className="border-t pt-4 flex justify-between font-bold text-lg">
               <span>Total</span>
               <span className="text-primary">{formatCurrency(total)}</span>
             </div>
+            {type === 'invoice' && advancePayment > 0 && (
+              <div className="border-t pt-3 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Advance Paid</span>
+                  <span className="text-emerald-600">-{formatCurrency(advancePayment)}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-base">
+                  <span>Balance Due</span>
+                  <span className="text-primary">{formatCurrency(balanceDue)}</span>
+                </div>
+              </div>
+            )}
 
             <div className="pt-4 space-y-3">
               <Button className="w-full gap-2" onClick={handleSave} disabled={isSaving}>

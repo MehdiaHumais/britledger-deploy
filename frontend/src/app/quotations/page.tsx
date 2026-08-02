@@ -20,9 +20,11 @@ export default function QuotationsPage() {
   const [activeTab, setActiveTab] = useState('list')
 
   const load = () => setQuotations(db.quotations.getAll('created_at', false))
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    db.quotations.syncFromApi().finally(() => load())
+  }, [])
 
-  const handleSave = (data: any) => {
+  const handleSave = async (data: any) => {
     const payload: any = {
       number: data.documentNumber,
       client: data.clientName,
@@ -39,7 +41,7 @@ export default function QuotationsPage() {
     if (data.backendId) {
       payload.backendId = data.backendId
     }
-    db.quotations.insert(payload)
+    await db.quotations.createRecord(payload)
     db.notifications.insert({
       title: 'Quotation Created & Sent',
       message: `Quotation ${data.documentNumber} has been sent to the client.`,
@@ -51,14 +53,14 @@ export default function QuotationsPage() {
     success('Quotation Saved', `${data.documentNumber} has been saved successfully.`)
   }
 
-  const handleDeleteQuotation = (quo: any) => {
-    db.quotations.delete(quo.id)
+  const handleDeleteQuotation = async (quo: any) => {
+    await db.quotations.removeRecord(quo.id)
     load()
     success('Quotation Deleted', `${quo.number} has been deleted.`)
   }
 
-  const convertToInvoice = (quo: any) => {
-    db.invoices.insert({
+  const convertToInvoice = async (quo: any) => {
+    await db.invoices.createRecord({
       number: quo.number.replace('QUO', 'INV'),
       client: quo.client,
       clientId: quo.clientId,
@@ -71,7 +73,7 @@ export default function QuotationsPage() {
       items: quo.items,
       notes: quo.notes || ''
     })
-    db.quotations.update(quo.id, { status: 'Accepted' })
+    await db.quotations.modifyRecord(quo.id, { status: 'Accepted' })
     db.notifications.insert({
       title: 'Quotation Accepted',
       message: `Quotation ${quo.number} was accepted and converted to Invoice.`,

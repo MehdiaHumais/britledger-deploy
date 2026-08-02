@@ -40,6 +40,7 @@ class InvoiceService:
             total_amount=payload.total_amount,
             tax_amount=payload.tax or 0.0,
             subtotal_amount=payload.subtotal or 0.0,
+            advance_payment=payload.advance_payment or 0.0,
             currency=payload.currency or "GBP",
             status=InvoiceStatus.DRAFT,
             items=payload.items,
@@ -49,6 +50,11 @@ class InvoiceService:
         await self.db.commit()
         await self.db.refresh(invoice)
         return invoice
+
+    async def delete(self, invoice_id: str):
+        invoice = await self.get_by_id(invoice_id)
+        await self.db.delete(invoice)
+        await self.db.commit()
 
     async def update(self, invoice_id: str, payload: InvoiceUpdate) -> Invoice:
         invoice = await self.get_by_id(invoice_id)
@@ -77,7 +83,20 @@ class InvoiceService:
             print(f"[STEP 4] User loaded: {user.email if user else 'N/A'}")
 
             payment_links = {}
-            if settings and settings.stripe_enabled:
+            include_payment_link = True
+            requested_status = None
+            if payload:
+                include_payment_link = getattr(payload, 'include_payment_link', None)
+                if include_payment_link is None and isinstance(payload, dict):
+                    include_payment_link = payload.get('include_payment_link', True)
+                requested_status = getattr(payload, 'status', None)
+                if requested_status is None and isinstance(payload, dict):
+                    requested_status = payload.get('status')
+
+            if requested_status == InvoiceStatus.PAID:
+                include_payment_link = False
+
+            if settings and settings.stripe_enabled and include_payment_link:
                 print(f"[STEP 5] Stripe enabled, generating link...")
                 try:
                     stripe_svc = StripeService(settings)
@@ -109,6 +128,8 @@ class InvoiceService:
                 raise HTTPException(status_code=400, detail="Recipient email is required")
 
             print(f"[STEP 7] Generating PDF...")
+            effective_status = requested_status or invoice.status
+            effective_status_str = effective_status.value if hasattr(effective_status, "value") else str(effective_status)
             inv_data = {
                 "invoice_number": invoice.invoice_number,
                 "issue_date": invoice.issue_date,
@@ -116,7 +137,9 @@ class InvoiceService:
                 "total": invoice.total_amount,
                 "tax_total": invoice.tax_amount,
                 "subtotal": invoice.subtotal_amount,
+                "advance_payment": float(invoice.advance_payment or 0),
                 "currency": invoice.currency,
+                "status": effective_status_str,
                 "items": invoice.items,
                 "notes": invoice.notes,
                 "company_name": settings.account_name if settings else None,
@@ -137,7 +160,7 @@ class InvoiceService:
                 "content": encoded.decode('utf-8')
             }]
 
-            company_display_name = user.full_name if user and user.full_name else (settings.account_name if settings and settings.account_name else "BritLedger AI")
+            company_display_name = settings.account_name if settings and settings.account_name else (user.full_name if user and user.full_name else "BritLedger AI")
                 
             subject = getattr(payload, 'subject', None) or f"Invoice {invoice.invoice_number} from {company_display_name}"
             
@@ -149,6 +172,8 @@ class InvoiceService:
                 due_date=invoice.due_date,
                 currency=invoice.currency or "GBP",
                 total_amount=float(invoice.total_amount or 0),
+                advance_payment=float(invoice.advance_payment or 0),
+                status=effective_status_str,
                 notes=invoice.notes,
                 items=invoice.items
             )
@@ -170,7 +195,12 @@ class InvoiceService:
             )
             
             if result:
-                invoice.status = InvoiceStatus.SENT
+                if requested_status == InvoiceStatus.PAID:
+                    invoice.status = InvoiceStatus.PAID
+                elif include_payment_link is False and requested_status is None:
+                    invoice.status = InvoiceStatus.PAID
+                else:
+                    invoice.status = InvoiceStatus.SENT
                 await self.db.commit()
                 print(f"[STEP 10] Email sent and status updated")
                 return invoice

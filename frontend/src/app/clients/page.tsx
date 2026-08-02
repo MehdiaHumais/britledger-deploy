@@ -37,7 +37,6 @@ export default function ClientsPage() {
 
   const load = () => {
     const clients = db.clients.getAll('created_at', false) as Client[]
-    // Calculate live invoices and balance for each client
     const invoices = db.invoices.getAll()
     clients.forEach(c => {
       const clientInvs = invoices.filter(i => i.clientId === c.id)
@@ -46,43 +45,44 @@ export default function ClientsPage() {
     })
     setClientsData(clients)
   }
-  
-  useEffect(() => { load() }, [])
 
-  const handleAdd = (e: React.FormEvent) => {
+  useEffect(() => {
+    db.clients.syncFromApi().finally(() => load())
+  }, [])
+
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-    db.clients.insert({ ...newClient, balance: 0, status: 'Active', invoices: 0 })
+    await db.clients.createRecord({ ...newClient, balance: 0, status: 'Active', invoices: 0 })
     setNewClient({ name: '', email: '', phone: '' })
     setIsAddOpen(false)
     load()
     setIsSaving(false)
   }
 
-  const handleEdit = (e: React.FormEvent) => {
+  const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editClient) return
     setIsEditing(true)
-    db.clients.update(editClient.id, { name: editClient.name, email: editClient.email, phone: editClient.phone })
+    await db.clients.modifyRecord(editClient.id, { name: editClient.name, email: editClient.email, phone: editClient.phone })
     setIsEditOpen(false)
     load()
     setIsEditing(false)
   }
 
-  const handleDeactivate = () => {
+  const handleDeactivate = async () => {
     if (!deactivateClient) return
     setIsDeactivating(true)
     const newStatus = deactivateClient.status === 'Active' ? 'Inactive' : 'Active'
-    db.clients.update(deactivateClient.id, { status: newStatus })
+    await db.clients.modifyRecord(deactivateClient.id, { status: newStatus })
     setIsDeactivateOpen(false)
     load()
     setIsDeactivating(false)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteClient) return
-    db.clients.delete(deleteClient.id)
-    // Delete related invoices
+    await db.clients.removeRecord(deleteClient.id)
     db.invoices.getAll().forEach(inv => {
       if (inv.clientId === deleteClient.id) {
         db.invoices.delete(inv.id)
@@ -93,7 +93,6 @@ export default function ClientsPage() {
         })
       }
     })
-    // Delete related quotations
     db.quotations.getAll().forEach(q => {
       if (q.clientId === deleteClient.id) {
         db.quotations.delete(q.id)

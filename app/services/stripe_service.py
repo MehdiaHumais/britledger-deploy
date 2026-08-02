@@ -36,8 +36,10 @@ class StripeService:
                 # Remove commas and currency symbols if any
                 raw_amount = raw_amount.replace(',', '').replace('£', '').replace('$', '').replace('€', '').strip()
             
+            # Charge balance due (total minus advance payment, if any)
+            advance = getattr(doc, 'advance_payment', None) or 0
             try:
-                amount_cents = int(float(raw_amount) * 100)
+                amount_cents = int((float(raw_amount) - float(advance)) * 100)
             except (ValueError, TypeError, AttributeError):
                 print(f"[STRIPE_WARN] Invalid amount for Stripe: {raw_amount}")
                 return None

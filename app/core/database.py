@@ -1,7 +1,6 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -12,13 +11,23 @@ connect_args = (
     if _is_sqlite
     else {"statement_cache_size": 0}
 )
-poolclass = None if _is_sqlite else NullPool
+
+pool_kwargs = {}
+if not _is_sqlite:
+    # Persistent pool for Postgres: reusing connections avoids the slow
+    # per-request connection handshake to the remote database.
+    pool_kwargs = {
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,
+    }
 
 engine = create_async_engine(
     settings.database_url,
     echo=settings.is_development,
     connect_args=connect_args,
-    poolclass=poolclass,
+    **pool_kwargs,
 )
 
 AsyncSessionLocal = sessionmaker(

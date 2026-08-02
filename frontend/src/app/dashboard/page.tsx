@@ -36,10 +36,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setInvoices(db.invoices.getAll('created_at', false))
-    setExpenses(db.expenses.getAll('date', false))
-    setClients(db.clients.getAll())
-    setLoading(false)
+    Promise.all([
+      db.invoices.syncFromApi(),
+      db.expenses.syncFromApi(),
+      db.clients.syncFromApi(),
+    ]).finally(() => {
+      setInvoices(db.invoices.getAll('created_at', false))
+      setExpenses(db.expenses.getAll('date', false))
+      setClients(db.clients.getAll())
+      setLoading(false)
+    })
   }, [])
 
   // Computed stats

@@ -28,6 +28,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             id: userData.id,
             name: userData.full_name || userData.email,
             email: userData.email,
+            avatar: userData.avatar || undefined,
             role: userData.role,
             is_fingerprint: userData.is_fingerprint,
           })

@@ -60,18 +60,39 @@ export const clientApi = {
   get: (id: string) => api.get(`/api/v1/clients/${id}`),
   create: (data: any) => api.post('/api/v1/clients', data),
   update: (id: string, data: any) => api.put(`/api/v1/clients/${id}`, data),
+  remove: (id: string) => api.delete(`/api/v1/clients/${id}`),
 }
 
 export const invoiceApi = {
   list: (params?: any) => api.get('/api/v1/invoices', { params }),
+  get: (id: string) => api.get(`/api/v1/invoices/${id}`),
   create: (data: any) => api.post('/api/v1/invoices', data),
+  update: (id: string, data: any) => api.put(`/api/v1/invoices/${id}`, data),
+  remove: (id: string) => api.delete(`/api/v1/invoices/${id}`),
   send: (id: string, data: any) => api.post(`/api/v1/invoices/${id}/send`, data),
 }
 
 export const quotationApi = {
   list: (params?: any) => api.get('/api/v1/quotations', { params }),
+  get: (id: string) => api.get(`/api/v1/quotations/${id}`),
   create: (data: any) => api.post('/api/v1/quotations', data),
+  update: (id: string, data: any) => api.put(`/api/v1/quotations/${id}`, data),
+  remove: (id: string) => api.delete(`/api/v1/quotations/${id}`),
   send: (id: string, data: any) => api.post(`/api/v1/quotations/${id}/send`, data),
+}
+
+export const expenseApi = {
+  list: (params?: any) => api.get('/api/v1/bookkeeping/expenses', { params }),
+  get: (id: string) => api.get(`/api/v1/bookkeeping/expenses/${id}`),
+  create: (data: any) => api.post('/api/v1/bookkeeping/expenses', data),
+  update: (id: string, data: any) => api.put(`/api/v1/bookkeeping/expenses/${id}`, data),
+  remove: (id: string) => api.delete(`/api/v1/bookkeeping/expenses/${id}`),
+}
+
+export const vatApi = {
+  records: (params?: any) => api.get('/api/v1/vat/records', { params }),
+  summary: (params?: any) => api.get('/api/v1/vat/summary', { params }),
+  report: () => api.get('/api/v1/vat/report'),
 }
 
 export const reportApi = {

@@ -98,6 +98,21 @@ async def update_quotation(
     return APIResponse(message="Quotation updated.", data=data)
 
 
+@router.delete(
+    "/{quotation_id}",
+    response_model=APIResponse,
+    summary="Delete a quotation",
+)
+async def delete_quotation(
+    quotation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    svc = QuotationService(db, current_user.id)
+    await svc.delete(quotation_id)
+    return APIResponse(message="Quotation deleted.")
+
+
 @router.post(
     "/{quotation_id}/send",
     response_model=APIResponse[QuotationResponse],

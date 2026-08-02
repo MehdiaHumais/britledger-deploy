@@ -26,6 +26,7 @@ class Invoice(BaseModel):
     total_amount = Column(Float, nullable=False, default=0.0)
     tax_amount = Column(Float, nullable=False, default=0.0)
     subtotal_amount = Column(Float, nullable=False, default=0.0)
+    advance_payment = Column(Float, nullable=False, default=0.0)
     currency = Column(String(10), default="GBP")
     
     # Items (Stored as JSON list)

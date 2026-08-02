@@ -96,7 +96,7 @@ async def update_client(
 @router.delete(
     "/{client_id}",
     response_model=APIResponse,
-    summary="Deactivate a client (soft delete)",
+    summary="Delete a client permanently",
 )
 async def delete_client(
     client_id: str,
@@ -105,7 +105,7 @@ async def delete_client(
 ):
     svc = ClientService(db, current_user.id)
     await svc.delete(client_id)
-    return APIResponse(message="Client deactivated.")
+    return APIResponse(message="Client deleted.")
 
 
 @router.get(

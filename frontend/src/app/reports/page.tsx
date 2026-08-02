@@ -31,9 +31,14 @@ export default function ReportsPage() {
   const [showAiModal, setShowAiModal] = useState(false)
 
   useEffect(() => {
-    setInvoices(db.invoices.getAll())
-    setExpenses(db.expenses.getAll())
-    setLoading(false)
+    Promise.all([
+      db.invoices.syncFromApi(),
+      db.expenses.syncFromApi(),
+    ]).finally(() => {
+      setInvoices(db.invoices.getAll())
+      setExpenses(db.expenses.getAll())
+      setLoading(false)
+    })
   }, [])
 
   const pAndLData = MONTH_LABELS.map((month, idx) => ({

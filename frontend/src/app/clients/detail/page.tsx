@@ -22,20 +22,22 @@ function ClientDetailContent() {
   useEffect(() => {
     if (!id) return
 
-    const c = db.clients.findOne((c: any) => c.id === id)
-    if (!c) {
-      router.push('/clients')
-      return
-    }
+    db.clients.syncFromApi().then(() => {
+      const c = db.clients.findOne((c: any) => c.id === id)
+      if (!c) {
+        router.push('/clients')
+        return
+      }
 
-    const allInvoices = db.invoices.getAll()
-    const clientInvoices = allInvoices.filter(i => i.clientId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      const allInvoices = db.invoices.getAll()
+      const clientInvoices = allInvoices.filter(i => i.clientId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-    c.balance = clientInvoices.filter(i => i.status !== 'Paid' && i.status !== 'Draft').reduce((sum, i) => sum + Number(i.amount), 0)
-    c.totalPaid = clientInvoices.filter(i => i.status === 'Paid').reduce((sum, i) => sum + Number(i.amount), 0)
+      c.balance = clientInvoices.filter(i => i.status !== 'Paid' && i.status !== 'Draft').reduce((sum, i) => sum + Number(i.amount), 0)
+      c.totalPaid = clientInvoices.filter(i => i.status === 'Paid').reduce((sum, i) => sum + Number(i.amount), 0)
 
-    setClient(c)
-    setInvoices(clientInvoices)
+      setClient(c)
+      setInvoices(clientInvoices)
+    })
   }, [id, router])
 
   if (!client) return null

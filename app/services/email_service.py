@@ -119,6 +119,29 @@ class EmailService:
     def get_invoice_html(self, invoice, company_settings, payment_links, sender_email=None, sender_name=None):
         stripe_link = payment_links.get("stripe")
         items_html = self._generate_items_table(getattr(invoice, "items", []), getattr(invoice, "currency", "GBP"))
+        total = float(invoice.total_amount or 0)
+        advance = float(getattr(invoice, "advance_payment", None) or 0)
+        balance = max(total - advance, 0)
+        is_paid = str(getattr(invoice, "status", None)).upper() == "PAID"
+
+        status_badge = ""
+        if is_paid:
+            status_badge = """<div style="display:inline-block; background-color:#dcfce7; color:#166534; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:6px 14px; border-radius:99px; margin-bottom:16px;">&#10003; Paid</div>"""
+        advance_block = ""
+        if advance > 0:
+            advance_block = f"""<div style="margin-top: 16px; font-size: 14px;"><strong>Total Amount:</strong> {invoice.currency} {total:,.2f}</div>
+                            <div style="margin-top: 8px; font-size: 14px;"><strong>Advance Paid:</strong> {invoice.currency} {advance:,.2f}</div>
+                            <div style="margin-top: 8px; font-size: 16px; font-weight: 700; color: #16a34a;"><strong>Balance Due:</strong> {invoice.currency} {balance:,.2f}</div>"""
+        if is_paid:
+            due_label = "Total Paid"
+            due_amount = total
+            message = "Thank you! This invoice has been paid in full. No further payment is required."
+            pay_button = ""
+        else:
+            due_label = "Balance Due" if advance > 0 else "Total Amount Due"
+            due_amount = balance if advance > 0 else total
+            message = "Hi there, here is your invoice. You can pay securely using the button below or review the attached PDF for a full breakdown."
+            pay_button = f'<a href="{stripe_link}" class="button">Pay Securely Online</a>' if stripe_link else ''
         sender_block = f"""<div style="background-color: #eef2ff; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #2563eb;">
             <div style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Sent By</div>
             <div style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;">{sender_name or 'BritLedger AI'}</div>
@@ -152,19 +175,21 @@ class EmailService:
                     </div>
                     <div class="content">
                         {sender_block}
+                        {status_badge}
                         <h2 style="margin-top: 0; font-size: 20px;">Invoice Received</h2>
-                        <p>Hi there, here is your invoice. You can pay securely using the button below or review the attached PDF for a full breakdown.</p>
+                        <p>{message}</p>
                         
                         {items_html}
                         
                         <div class="invoice-card">
-                            <div style="font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Total Amount Due</div>
-                            <div class="amount">{invoice.currency} {invoice.total_amount:,.2f}</div>
+                            <div style="font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{due_label}</div>
+                            <div class="amount">{invoice.currency} {due_amount:,.2f}</div>
                             <div style="margin-top: 16px; font-size: 14px;"><strong>Invoice:</strong> {invoice.invoice_number}</div>
                             <div style="font-size: 14px;"><strong>Due Date:</strong> {invoice.due_date or 'On Receipt'}</div>
+                            {advance_block}
                         </div>
                         
-                        {f'<a href="{stripe_link}" class="button">Pay Securely Online</a>' if stripe_link else ''}
+                        {pay_button}
                         
                         {f'<div style="margin-top: 24px; font-size: 14px; color: #475569;"><strong>Notes:</strong><br/>{invoice.notes}</div>' if invoice.notes else ''}
                     </div>

@@ -34,13 +34,15 @@ export default function ExpensesPage() {
     setTransactions(db.expenses.getAll('date', false))
   }
 
-  useEffect(() => { fetchTransactions() }, [])
+  useEffect(() => {
+    db.expenses.syncFromApi().finally(() => fetchTransactions())
+  }, [])
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    
-    db.expenses.insert({ ...newTx, amount: parseFloat(newTx.amount) })
+
+    await db.expenses.createRecord({ ...newTx, amount: parseFloat(newTx.amount) })
     if (newTx.type === 'expense') {
       db.notifications.insert({
         title: 'Expense Recorded',
@@ -49,7 +51,7 @@ export default function ExpensesPage() {
         isRead: false
       })
     }
-    
+
     setTransactions(db.expenses.getAll('date', false))
     setNewTx({ date: new Date().toISOString().split('T')[0], description: '', category: 'Other', type: 'expense', amount: '' })
     setIsAddOpen(false)

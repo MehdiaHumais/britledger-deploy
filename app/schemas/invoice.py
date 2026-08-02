@@ -11,6 +11,7 @@ class InvoiceCreate(BaseModel):
     total_amount: float
     subtotal: Optional[float] = 0.0
     tax: Optional[float] = 0.0
+    advance_payment: Optional[float] = 0.0
     currency: Optional[str] = "GBP"
     items: Optional[List[Any]] = []
     notes: Optional[str] = None
@@ -23,6 +24,7 @@ class InvoiceUpdate(BaseModel):
     total_amount: Optional[float] = None
     subtotal: Optional[float] = None
     tax: Optional[float] = None
+    advance_payment: Optional[float] = None
     currency: Optional[str] = None
     items: Optional[List[Any]] = None
     notes: Optional[str] = None
@@ -30,7 +32,7 @@ class InvoiceUpdate(BaseModel):
 
 class InvoiceResponse(BaseModel):
     id: str
-    client_id: str
+    client_id: Optional[str] = None
     invoice_number: str
     status: InvoiceStatus
     issue_date: Optional[date] = None
@@ -38,6 +40,7 @@ class InvoiceResponse(BaseModel):
     total_amount: float
     tax_amount: float = 0.0
     subtotal_amount: float = 0.0
+    advance_payment: float = 0.0
     currency: str = "GBP"
     items: Optional[List[Any]] = []
     notes: Optional[str] = None
@@ -47,3 +50,5 @@ class SendInvoiceRequest(BaseModel):
     to_email: str
     subject: Optional[str] = None
     personal_message: Optional[str] = None
+    include_payment_link: Optional[bool] = True
+    status: Optional[InvoiceStatus] = None

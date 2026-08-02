@@ -30,7 +30,7 @@ class QuotationUpdate(BaseModel):
 
 class QuotationResponse(BaseModel):
     id: str
-    client_id: str
+    client_id: Optional[str] = None
     quotation_number: str
     status: QuotationStatus
     issue_date: Optional[date] = None

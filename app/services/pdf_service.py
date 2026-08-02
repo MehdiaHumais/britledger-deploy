@@ -21,6 +21,13 @@ class PDFService:
         pdf.set_text_color(*primary_color)
         pdf.cell(0, 15, "INVOICE", align="R", new_x="LMARGIN", new_y="NEXT")
 
+        # PAID status stamp
+        if str(invoice_data.get("status", "")).upper() == "PAID":
+            pdf.set_font("helvetica", "B", 20)
+            pdf.set_text_color(22, 163, 74)
+            pdf.cell(0, 12, "PAID", align="R", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*text_color)
+
         # Your Details (Left)
         pdf.set_font("helvetica", "B", 14)
         pdf.set_text_color(*text_color)
@@ -109,6 +116,7 @@ class PDFService:
         subtotal = float(invoice_data.get("subtotal", 0))
         tax_total = float(invoice_data.get("tax_total", 0))
         total = float(invoice_data.get("total", 0))
+        advance_payment = float(invoice_data.get("advance_payment", 0) or 0)
 
         pdf.set_x(120)
         pdf.set_font("helvetica", "", 10)
@@ -124,6 +132,18 @@ class PDFService:
         pdf.set_text_color(*primary_color)
         pdf.cell(35, 10, "Total:", align="R")
         pdf.cell(35, 10, f"${total:.2f}", align="R", new_x="LMARGIN", new_y="NEXT")
+
+        if advance_payment > 0:
+            pdf.set_font("helvetica", "", 10)
+            pdf.set_text_color(*text_color)
+            pdf.set_x(120)
+            pdf.cell(35, 8, "Advance Paid:", align="R")
+            pdf.cell(35, 8, f"${advance_payment:.2f}", align="R", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_x(120)
+            pdf.set_font("helvetica", "B", 11)
+            pdf.set_text_color(0, 128, 0)
+            pdf.cell(35, 10, "Balance Due:", align="R")
+            pdf.cell(35, 10, f"${max(total - advance_payment, 0):.2f}", align="R", new_x="LMARGIN", new_y="NEXT")
 
         # Notes
         notes = invoice_data.get("notes")

@@ -52,6 +52,11 @@ class QuotationService:
         await self.db.refresh(quotation)
         return quotation
 
+    async def delete(self, quotation_id: str):
+        quotation = await self.get_by_id(quotation_id)
+        await self.db.delete(quotation)
+        await self.db.commit()
+
     async def update(self, quotation_id: str, payload: QuotationUpdate) -> Quotation:
         quotation = await self.get_by_id(quotation_id)
         update_data = payload.model_dump(exclude_unset=True)

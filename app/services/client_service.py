@@ -35,7 +35,7 @@ class ClientService:
 
     async def delete(self, client_id: str):
         client = await self.get_by_id(client_id)
-        client.is_active = False
+        await self.db.delete(client)
         await self.db.commit()
 
     async def get_balances(self, client_id: str) -> ClientBalances:
