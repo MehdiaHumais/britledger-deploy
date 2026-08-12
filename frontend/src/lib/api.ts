@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/auth-store'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ledger.britsyncai.com'
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ledger.britsyncai.com'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -70,6 +70,8 @@ export const invoiceApi = {
   update: (id: string, data: any) => api.put(`/api/v1/invoices/${id}`, data),
   remove: (id: string) => api.delete(`/api/v1/invoices/${id}`),
   send: (id: string, data: any) => api.post(`/api/v1/invoices/${id}/send`, data),
+  exportPdf: (data: any) => api.post('/api/v1/invoices/export/pdf', data),
+  pdfDownloadUrl: (token: string) => `${API_URL}/api/v1/invoices/export/pdf/${token}`,
 }
 
 export const quotationApi = {

@@ -36,6 +36,11 @@ class UserBase(BaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
     avatar: Optional[str] = None
+    company_name: Optional[str] = None
+    vat_number: Optional[str] = None
+    address: Optional[str] = None
+    email_notifications: Optional[bool] = None
+    ai_notifications: Optional[bool] = None
 
 
 class UserUpdate(UserBase):

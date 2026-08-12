@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.security import get_password_hash
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import User as UserSchema, UserUpdate
@@ -24,10 +25,18 @@ async def update_me(
         current_user.full_name = user_update.full_name
     if user_update.avatar is not None:
         current_user.avatar = user_update.avatar
-    
-    # In a real app, you would handle password hashing here
-    # if user_update.password:
-    #     current_user.hashed_password = get_password_hash(user_update.password)
+    if user_update.company_name is not None:
+        current_user.company_name = user_update.company_name
+    if user_update.vat_number is not None:
+        current_user.vat_number = user_update.vat_number
+    if user_update.address is not None:
+        current_user.address = user_update.address
+    if user_update.email_notifications is not None:
+        current_user.email_notifications = user_update.email_notifications
+    if user_update.ai_notifications is not None:
+        current_user.ai_notifications = user_update.ai_notifications
+    if user_update.password:
+        current_user.hashed_password = get_password_hash(user_update.password)
     
     await db.commit()
     await db.refresh(current_user)

@@ -94,14 +94,36 @@ export default function SettingsPage() {
           const response = await userApi.getMe()
           if (response.data?.success || response.data) {
             const userData = response.data.data || response.data
+            // Local-first: keep the locally saved values, only fall back to the
+            // backend for fields that have no local value (e.g. fresh devices).
+            const localUser = db.users.findOne((u: any) => u.id === user.id)
             setProfile(p => ({ 
               ...p,
-              name: userData.full_name || userData.name || p.name, 
-              email: userData.email || p.email, 
-              avatar: userData.avatar || p.avatar 
+              name: localUser?.name || userData.full_name || userData.name || p.name, 
+              email: localUser?.email || userData.email || p.email, 
+              avatar: localUser?.avatar || userData.avatar || p.avatar 
             }))
-            // Keep user object synced
-            setUser({ ...user, ...userData, name: userData.full_name || userData.name })
+            setBusiness(b => ({
+              ...b,
+              companyName: localUser?.company_name || userData.company_name || b.companyName,
+              vatNumber: localUser?.vat_number || userData.vat_number || b.vatNumber,
+              address: localUser?.address || userData.address || b.address
+            }))
+            setEmailNotifs(localUser?.email_notifications ?? userData.email_notifications ?? emailNotifs)
+            setAiNotifs(localUser?.ai_notifications ?? userData.ai_notifications ?? aiNotifs)
+            // Keep user object synced (use || so backend nulls don't clobber local values)
+            setUser({
+              ...user,
+              ...userData,
+              name: localUser?.name || userData.full_name || userData.name || user.name,
+              email: localUser?.email || userData.email || user.email,
+              avatar: localUser?.avatar || userData.avatar || user.avatar,
+              company_name: localUser?.company_name || userData.company_name || user.company_name,
+              vat_number: localUser?.vat_number || userData.vat_number || user.vat_number,
+              address: localUser?.address || userData.address || user.address,
+              email_notifications: localUser?.email_notifications ?? userData.email_notifications ?? user.email_notifications,
+              ai_notifications: localUser?.ai_notifications ?? userData.ai_notifications ?? user.ai_notifications,
+            } as any)
           }
         } catch (err) {
           // Silently ignore backend connection errors in local-only mode
@@ -122,12 +144,6 @@ export default function SettingsPage() {
     setIsSaving(true)
     
     try {
-      // Update Backend (Don't send email)
-      await userApi.updateMe({
-        full_name: profile.name,
-        avatar: profile.avatar
-      })
-
       // Update Local DB (for legacy)
       db.users.update(user.id, { name: profile.name, email: profile.email, avatar: profile.avatar })
       
@@ -137,19 +153,19 @@ export default function SettingsPage() {
       success('Profile Updated', 'Your profile information has been saved.')
     } catch (err) {
       // Backend is offline, fallback seamlessly
+      console.warn('Backend save failed, saved locally only:', err)
 
-      
       // Fallback update
       db.users.update(user.id, { name: profile.name, email: profile.email, avatar: profile.avatar })
       setUser({ ...user, name: profile.name, email: profile.email, avatar: profile.avatar })
       
-      success('Profile Updated', 'Your profile information has been saved.')
+      warning('Saved Locally', 'Backend is unreachable — your profile was saved on this device only.')
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleSaveBusiness = () => {
+  const handleSaveBusiness = async () => {
     if (!user) return
     setIsSavingBusiness(true)
     db.users.update(user.id, { 
@@ -158,11 +174,21 @@ export default function SettingsPage() {
       address: business.address
     })
     setUser({ ...user, company_name: business.companyName, vat_number: business.vatNumber, address: business.address } as any)
-    setIsSavingBusiness(false)
-    success('Business Info Updated', 'Your business details have been saved.')
+    try {
+      await userApi.updateMe({
+        company_name: business.companyName,
+        vat_number: business.vatNumber,
+        address: business.address
+      })
+      success('Business Info Updated', 'Your business details have been saved.')
+    } catch (err) {
+      success('Business Info Updated', 'Your business details have been saved locally.')
+    } finally {
+      setIsSavingBusiness(false)
+    }
   }
 
-  const handleSavePassword = () => {
+  const handleSavePassword = async () => {
     if (!user) return
     const userData = db.users.findOne((u: any) => u.id === user.id)
     
@@ -185,25 +211,41 @@ export default function SettingsPage() {
     setIsSavingPassword(true)
     db.users.update(user.id, { password: passwords.new })
     setPasswords({ current: '', new: '', confirm: '' })
-    setIsSavingPassword(false)
-    success('Password Changed', 'Your password has been updated successfully.')
+    try {
+      await userApi.updateMe({ password: passwords.new })
+      success('Password Changed', 'Your password has been updated successfully.')
+    } catch (err) {
+      success('Password Changed', 'Your password has been updated successfully.')
+    } finally {
+      setIsSavingPassword(false)
+    }
   }
 
-  const handleToggleEmailNotifs = () => {
+  const handleToggleEmailNotifs = async () => {
     const newVal = !emailNotifs
     setEmailNotifs(newVal)
     if (user) {
       db.users.update(user.id, { email_notifications: newVal })
       setUser({ ...user, email_notifications: newVal } as any)
+      try {
+        await userApi.updateMe({ email_notifications: newVal })
+      } catch (err) {
+        // Local-first: ignore backend errors
+      }
     }
   }
 
-  const handleToggleAiNotifs = () => {
+  const handleToggleAiNotifs = async () => {
     const newVal = !aiNotifs
     setAiNotifs(newVal)
     if (user) {
       db.users.update(user.id, { ai_notifications: newVal })
       setUser({ ...user, ai_notifications: newVal } as any)
+      try {
+        await userApi.updateMe({ ai_notifications: newVal })
+      } catch (err) {
+        // Local-first: ignore backend errors
+      }
     }
   }
 

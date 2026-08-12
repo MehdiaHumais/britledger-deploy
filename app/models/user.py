@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, String, Enum
+from sqlalchemy import Boolean, Column, String, Text, Enum
 from app.models.base import BaseModel
 import enum
 
@@ -18,3 +18,8 @@ class User(BaseModel):
     is_active = Column(Boolean(), default=True)
     role = Column(Enum(UserRole), default=UserRole.ADMIN)
     device_id = Column(String(255), nullable=True, index=True)
+    company_name = Column(String(255), nullable=True)
+    vat_number = Column(String(50), nullable=True)
+    address = Column(Text, nullable=True)
+    email_notifications = Column(Boolean, default=True)
+    ai_notifications = Column(Boolean, default=True)

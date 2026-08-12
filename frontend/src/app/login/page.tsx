@@ -59,14 +59,43 @@ export default function LoginPage() {
         const meRes = await api.get('/api/v1/auth/me', { timeout: 15000 })
         const me = meRes.data?.data || meRes.data
         if (me && me.id) {
+          // Merge with the local record so offline-saved business/notification
+          // settings are preserved, then let backend fields win for synced ones.
+          const local = db.users.findOne((u: any) => u.id === me.id)
+          const localByEmail = local || db.users.findOne((u: any) => u.email?.toLowerCase() === me.email?.toLowerCase())
           setUser({
             id: me.id,
-            name: me.full_name || '',
-            email: me.email || '',
-            avatar: me.avatar || '',
+            name: local?.name || localByEmail?.name || me.full_name || '',
+            email: me.email || local?.email || '',
+            avatar: local?.avatar || me.avatar || '',
             role: me.role || 'ADMIN',
-            is_fingerprint: me.is_fingerprint || false,
+            is_fingerprint: me.is_fingerprint || local?.is_fingerprint || false,
+            company_name: local?.company_name || localByEmail?.company_name || me.company_name,
+            vat_number: local?.vat_number || localByEmail?.vat_number || me.vat_number,
+            address: local?.address || localByEmail?.address || me.address,
+            email_notifications: local?.email_notifications ?? localByEmail?.email_notifications ?? me.email_notifications ?? true,
+            ai_notifications: local?.ai_notifications ?? localByEmail?.ai_notifications ?? me.ai_notifications ?? true,
           })
+          // Local-first sync: if a local name/company exists but the backend
+          // has stale data, push the local values so the server catches up.
+          const localName = local?.name || localByEmail?.name
+          if (localName && localName !== me.full_name) {
+            api.patch('/api/v1/users/me', { full_name: localName }, { timeout: 10000 }).catch(() => {})
+          }
+          // Ensure the local record is keyed by the backend user id so later
+          // db.users.update(user.id, ...) calls actually take effect.
+          if (!local) {
+            if (localByEmail) {
+              db.users.update(localByEmail.id, { id: me.id } as any)
+            } else {
+              const created = db.users.insert({
+                name: me.full_name || '',
+                email: me.email || '',
+                is_fingerprint: me.is_fingerprint || false,
+              } as any)
+              db.users.update(created.id, { id: me.id } as any)
+            }
+          }
         }
       } catch {}
 

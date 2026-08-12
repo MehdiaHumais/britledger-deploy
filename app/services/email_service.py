@@ -1,5 +1,6 @@
 import resend
 import os
+import html as html_mod
 from typing import List, Optional
 
 from app.core.config import settings
@@ -7,6 +8,14 @@ from app.core.config import settings
 class EmailService:
     def __init__(self):
         resend.api_key = settings.EMAIL_API_KEY
+
+    @staticmethod
+    def _html_notes(notes):
+        """Escape notes and preserve line breaks for HTML email bodies."""
+        if not notes:
+            return ""
+        text = html_mod.escape(str(notes))
+        return text.replace("\r\n", "\n").replace("\n", "<br/>")
 
     def send_invoice_email(
         self, 
@@ -147,6 +156,7 @@ class EmailService:
             <div style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;">{sender_name or 'BritLedger AI'}</div>
             <div style="font-size: 14px; color: #2563eb; margin-top: 2px;">{sender_email or ''}</div>
         </div>""" if sender_email else ""
+        notes_html = self._html_notes(getattr(invoice, "notes", None))
 
         return f"""
         <!DOCTYPE html>
@@ -191,7 +201,7 @@ class EmailService:
                         
                         {pay_button}
                         
-                        {f'<div style="margin-top: 24px; font-size: 14px; color: #475569;"><strong>Notes:</strong><br/>{invoice.notes}</div>' if invoice.notes else ''}
+                        {f'<div style="margin-top: 24px; font-size: 14px; color: #475569;"><strong>Notes:</strong><br/>{notes_html}</div>' if notes_html else ''}
                     </div>
                     <div class="footer">
                         <p><strong>{company_settings.account_name if company_settings else 'BritLedger AI'}</strong></p>
@@ -212,6 +222,7 @@ class EmailService:
             <div style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;">{sender_name or 'BritLedger AI'}</div>
             <div style="font-size: 14px; color: #6366f1; margin-top: 2px;">{sender_email or ''}</div>
         </div>""" if sender_email else ""
+        notes_html = self._html_notes(getattr(quotation, "notes", None))
 
         return f"""
         <!DOCTYPE html>
@@ -253,7 +264,7 @@ class EmailService:
                         
                         {f'<a href="{stripe_link}" class="button">Accept & Approve Quotation</a>' if stripe_link else ''}
                         
-                        {f'<div style="margin-top: 24px; font-size: 14px; color: #475569;"><strong>Notes / Terms:</strong><br/>{quotation.notes}</div>' if getattr(quotation, 'notes', None) else ''}
+                        {f'<div style="margin-top: 24px; font-size: 14px; color: #475569;"><strong>Notes / Terms:</strong><br/>{notes_html}</div>' if notes_html else ''}
                     </div>
                     <div class="footer">
                         <p><strong>{company_settings.account_name if company_settings else 'BritLedger AI'}</strong></p>

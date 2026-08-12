@@ -85,6 +85,45 @@ function clientName(clientId: string): string {
   return client?.name || ''
 }
 
+// Normalize line items between the frontend shape (camelCase unitPrice/taxRate)
+// and the backend/PDF shape (snake_case unit_price/tax_rate, plus a computed
+// per-item total). The `id` is a local-only field used by the document builder.
+function normalizeItemsToApi(items: any): any[] {
+  if (!Array.isArray(items)) return []
+  return items.map((i: any) => {
+    const quantity = Number(i.quantity) || 0
+    const unitPrice = Number(i.unitPrice ?? i.unit_price ?? i.price) || 0
+    const out: any = {}
+    if (i.description !== undefined) out.description = i.description
+    out.quantity = quantity
+    out.unit_price = unitPrice
+    out.total = quantity * unitPrice
+    if (i.taxRate !== undefined) out.tax_rate = Number(i.taxRate) || 0
+    else if (i.tax_rate !== undefined) out.tax_rate = Number(i.tax_rate) || 0
+    return out
+  })
+}
+
+function normalizeItemsToLocal(items: any): any[] {
+  if (!items) return []
+  let list = items
+  if (typeof items === 'string') {
+    try { list = JSON.parse(items) } catch { return [] }
+  }
+  if (!Array.isArray(list)) return []
+  return list.map((i: any) => {
+    const unitPrice = Number(i.unitPrice ?? i.unit_price ?? i.price) || 0
+    const taxRate = Number(i.taxRate ?? i.tax_rate) || 0
+    return {
+      id: i.id || genId(),
+      description: i.description || '',
+      quantity: Number(i.quantity) || 1,
+      unitPrice,
+      taxRate,
+    }
+  })
+}
+
 // ── Field mapping: frontend payload <-> backend schema ──────────────
 const FIELD_MAPS: Record<string, { toApi: (d: any) => any; toLocal: (d: any) => any }> = {
   clients: {
@@ -124,7 +163,7 @@ const FIELD_MAPS: Record<string, { toApi: (d: any) => any; toLocal: (d: any) => 
       if (d.tax !== undefined) out.tax = Number(d.tax) || 0
       if (d.advancePayment !== undefined) out.advance_payment = Number(d.advancePayment) || 0
       if (d.currency !== undefined) out.currency = d.currency
-      if (d.items !== undefined) out.items = d.items || []
+      if (d.items !== undefined) out.items = normalizeItemsToApi(d.items)
       if (d.notes !== undefined) out.notes = d.notes || null
       if (d.status !== undefined) out.status = String(d.status).toUpperCase()
       return out
@@ -141,7 +180,7 @@ const FIELD_MAPS: Record<string, { toApi: (d: any) => any; toLocal: (d: any) => 
       tax: d.tax_amount,
       advancePayment: d.advance_payment || 0,
       currency: d.currency || 'GBP',
-      items: d.items || [],
+      items: normalizeItemsToLocal(d.items),
       notes: d.notes,
       status: toTitle(d.status),
     }),
@@ -157,7 +196,7 @@ const FIELD_MAPS: Record<string, { toApi: (d: any) => any; toLocal: (d: any) => 
       if (d.subtotal !== undefined) out.subtotal = Number(d.subtotal) || 0
       if (d.tax !== undefined) out.tax = Number(d.tax) || 0
       if (d.currency !== undefined) out.currency = d.currency
-      if (d.items !== undefined) out.items = d.items || []
+      if (d.items !== undefined) out.items = normalizeItemsToApi(d.items)
       if (d.notes !== undefined) out.notes = d.notes || null
       if (d.status !== undefined) out.status = String(d.status).toUpperCase()
       return out
@@ -173,7 +212,7 @@ const FIELD_MAPS: Record<string, { toApi: (d: any) => any; toLocal: (d: any) => 
       subtotal: d.subtotal_amount,
       tax: d.tax_amount,
       currency: d.currency || 'GBP',
-      items: d.items || [],
+      items: normalizeItemsToLocal(d.items),
       notes: d.notes,
       status: toTitle(d.status),
     }),

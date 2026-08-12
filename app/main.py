@@ -64,6 +64,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         import app.models  # noqa: ensure all models are registered with Base
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            # Add columns that create_all does not add to existing tables.
+            from sqlalchemy import text, inspect
+            inspector = await conn.run_sync(inspect)
+            if "users" in inspector.get_table_names():
+                user_cols = {c["name"] for c in inspector.get_columns("users")}
+                for col_sql, col_name in [
+                    ("ALTER TABLE users ADD COLUMN company_name VARCHAR(255)", "company_name"),
+                    ("ALTER TABLE users ADD COLUMN vat_number VARCHAR(50)", "vat_number"),
+                    ("ALTER TABLE users ADD COLUMN address TEXT", "address"),
+                    ("ALTER TABLE users ADD COLUMN email_notifications BOOLEAN DEFAULT 1", "email_notifications"),
+                    ("ALTER TABLE users ADD COLUMN ai_notifications BOOLEAN DEFAULT 1", "ai_notifications"),
+                ]:
+                    if col_name not in user_cols:
+                        await conn.execute(text(col_sql))
         logger.info("database_tables_ready")
     except Exception as e:
         logger.warning("database_tables_error", error=str(e))

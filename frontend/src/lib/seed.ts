@@ -13,14 +13,7 @@ export async function seedSuperAdmin(): Promise<void> {
   if (typeof window === 'undefined') return
 
   const existing = db.users.findOne((u: any) => u.email === ADMIN_EMAIL)
-  if (existing) {
-    db.users.update(existing.id, {
-      password: ADMIN_PASSWORD,
-      role: 'SUPERADMIN',
-      name: ADMIN_NAME,
-      is_fingerprint: false,
-    })
-  } else {
+  if (!existing) {
     db.users.insert({
       name: ADMIN_NAME,
       email: ADMIN_EMAIL,
@@ -30,6 +23,8 @@ export async function seedSuperAdmin(): Promise<void> {
       is_fingerprint: false,
     })
   }
+  // If the record exists, do NOT reset its name/password/is_fingerprint —
+  // the user may have changed them in Settings.
 
   try {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ledger.britsyncai.com'

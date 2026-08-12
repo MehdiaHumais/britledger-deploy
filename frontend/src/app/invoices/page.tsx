@@ -8,12 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus, MoreHorizontal, Edit2, Trash2, Loader2, FileText } from 'lucide-react'
+import { MoreHorizontal, Trash2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useToast } from '../../components/ui/toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import db from '@/lib/local-db'
+import { useAuthStore } from '@/store/auth-store'
 
 export default function InvoicesPage() {
   const { success, error } = useToast()
@@ -104,24 +104,57 @@ export default function InvoicesPage() {
     success('Invoice Deleted', `${inv.number} has been deleted.`)
   }
 
-  const [pdfPreview, setPdfPreview] = useState<any>(null)
-
-  const handleDownloadPDF = (inv: any) => {
-    setPdfPreview(inv)
+  const handleDownloadPDF = async (inv: any) => {
+    const { invoiceApi } = await import('@/lib/api')
+    const user = useAuthStore.getState().user
+    try {
+      const payload: any = {
+        invoice_number: inv.number,
+        number: inv.number,
+        issue_date: inv.date,
+        due_date: inv.dueDate,
+        total: Number(inv.amount) || 0,
+        subtotal: Number(inv.subtotal) || 0,
+        tax_total: Number(inv.tax) || 0,
+        advance_payment: Number(inv.advancePayment) || 0,
+        currency: inv.currency || 'GBP',
+        status: String(inv.status || '').toUpperCase(),
+        notes: inv.notes || '',
+        items: (inv.items || []).map((i: any) => {
+          const unitPrice = Number(i.unitPrice ?? i.unit_price ?? i.price) || 0
+          return {
+            description: i.description || '',
+            quantity: Number(i.quantity) || 1,
+            unit_price: unitPrice,
+            total: (Number(i.quantity) || 1) * unitPrice,
+            tax_rate: Number(i.taxRate ?? i.tax_rate) || 0,
+          }
+        }),
+        client: { name: inv.client || '', email: '', address: '' },
+      }
+      if (user) {
+        if (user.company_name) payload.company_name = user.company_name
+        if (user.email) payload.company_email = user.email
+        if (user.address) payload.company_address = user.address
+        if (user.vat_number) payload.vat_number = user.vat_number
+      }
+      const res = await invoiceApi.exportPdf(payload)
+      const token = res.data?.data?.token
+      if (!token) throw new Error('No download token returned from server')
+      const url = invoiceApi.pdfDownloadUrl(token)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = res.data?.data?.filename || `Invoice_${inv.number}.pdf`
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      success('PDF Downloaded', `Invoice ${inv.number} has been downloaded.`)
+    } catch (e) {
+      console.error('PDF download failed:', e)
+      error('Download Failed', 'Could not generate the PDF. Please try again.')
+    }
   }
-
-  const closePdf = () => setPdfPreview(null)
-
-  const itemRowsHtml = (inv: any) => (inv.items || []).map((i: any) => {
-    const lineTotal = (i.quantity || 1) * (i.price || i.unit_price || 0)
-    return `<tr>
-      <td>${i.description || ''}</td>
-      <td class="center">${i.quantity || 1}</td>
-      <td class="right">£${Number(i.price || i.unit_price || 0).toFixed(2)}</td>
-      <td class="right">£${lineTotal.toFixed(2)}</td>
-    </tr>`
-  }).join('')
-
 
   return (
     <DashboardLayout>
@@ -224,96 +257,6 @@ export default function InvoicesPage() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {pdfPreview && (
-        <Dialog open={!!pdfPreview} onOpenChange={() => closePdf()}>
-          <DialogContent className="max-w-3xl w-[95vw] h-[90vh] max-h-[90vh] flex flex-col p-4 sm:p-6">
-            <div className="flex justify-between items-center mb-4 flex-shrink-0">
-              <h2 className="text-xl font-bold">Invoice {pdfPreview.number}</h2>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={closePdf}>Close</Button>
-              </div>
-            </div>
-            <div className="flex-1 w-full min-h-0 relative">
-              <iframe
-                srcDoc={`<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Invoice ${pdfPreview.number}</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px}
-  .doc-card{background:#fff;max-width:800px;margin:0 auto;padding:30px;border-radius:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #3b82f6}
-  .brand h1{font-size:22px;font-weight:800;color:#1e3a5f}.brand h1 span{color:#3b82f6}
-  .doc-label{text-align:right}.doc-label h2{font-size:26px;font-weight:900;color:#3b82f6;letter-spacing:2px}
-  .doc-label p{font-size:12px;color:#64748b;margin-top:4px}
-  .status{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${pdfPreview.status==='Paid'?'#d1fae5;color:#059669':pdfPreview.status==='Overdue'?'#fee2e2;color:#dc2626':'#dbeafe;color:#1d4ed8'};margin-top:5px}
-  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
-  .meta-box h4{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-  .meta-box p{font-size:13px;color:#1e293b;margin-bottom:2px}
-  .table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:20px}
-  table{width:100%;border-collapse:collapse}
-  thead tr{background:#1e3a5f;color:#fff}
-  thead th{padding:10px 12px;text-align:left;font-size:12px;font-weight:600;white-space:nowrap}
-  tbody tr:nth-child(even){background:#f8fafc}
-  tbody td{padding:9px 12px;border-bottom:1px solid #e2e8f0;font-size:12px}
-  .center{text-align:center}.right{text-align:right}
-  .totals-container{display:flex;justify-content:flex-end;margin-top:10px}
-  .totals{width:240px}
-  .totals td{padding:6px 12px;font-size:12px}
-  .totals .total-row td{font-size:15px;font-weight:800;color:#3b82f6;border-top:2px solid #3b82f6;padding-top:10px}
-  .notes{margin-top:24px;padding:12px;background:#f8fafc;border-radius:8px;border-left:3px solid #3b82f6}
-  .notes h4{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
-  .footer{margin-top:30px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:10px}
-  @media (max-width: 640px) {
-    body{padding:10px}
-    .doc-card{padding:16px;border-radius:4px}
-    .header{flex-direction:column;align-items:stretch;gap:12px;margin-bottom:20px}
-    .doc-label{text-align:left}
-    .meta-grid{grid-template-columns:1fr;gap:16px;margin-bottom:20px}
-    .totals-container{justify-content:stretch}
-    .totals{width:100%}
-    tbody td, thead th{padding:8px;font-size:11px}
-  }
-  @media print{body{background:#fff;padding:0}.doc-card{box-shadow:none}}
-</style></head><body>
-  <div class="doc-card">
-    <div class="header">
-      <div class="brand"><h1>Brit<span>Ledger</span> AI</h1></div>
-      <div class="doc-label"><h2>INVOICE</h2><p>${pdfPreview.number}</p><span class="status">${pdfPreview.status}</span></div>
-    </div>
-    <div class="meta-grid">
-      <div><div class="meta-box"><h4>Bill To</h4><p class="highlight">${pdfPreview.client}</p></div></div>
-      <div><div class="meta-box"><h4>Details</h4>
-        <p>Invoice #: <strong>${pdfPreview.number}</strong></p>
-        <p>Issue Date: <strong>${pdfPreview.date || ''}</strong></p>
-        ${pdfPreview.dueDate ? `<p>Due Date: <strong style="color:#ef4444">${pdfPreview.dueDate}</strong></p>` : ''}
-      </div></div>
-    </div>
-    <div class="table-responsive">
-      <table>
-        <thead><tr><th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="right">Amount</th></tr></thead>
-        <tbody>${itemRowsHtml(pdfPreview) || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px">No line items</td></tr>'}</tbody>
-      </table>
-    </div>
-    <div class="totals-container">
-      <div class="totals"><table>
-        <tr><td style="color:#64748b">Subtotal</td><td class="right">£${Number(pdfPreview.subtotal || pdfPreview.amount || 0).toFixed(2)}</td></tr>
-        <tr><td style="color:#64748b">VAT</td><td class="right">£${Number(pdfPreview.tax || 0).toFixed(2)}</td></tr>
-        <tr class="total-row"><td>Total Due</td><td class="right">£${Number(pdfPreview.amount || 0).toFixed(2)}</td></tr>
-      </table></div>
-    </div>
-    ${pdfPreview.notes ? `<div class="notes"><h4>Notes</h4><p>${pdfPreview.notes}</p></div>` : ''}
-    <div class="footer"><p>Generated by BritLedger AI</p></div>
-  </div>
-</body></html>`}
-                className="w-full h-full border-0 rounded-lg absolute inset-0 bg-white"
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </DashboardLayout>
   )
 }

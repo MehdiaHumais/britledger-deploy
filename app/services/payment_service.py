@@ -53,17 +53,21 @@ class PaymentService:
         return settings
 
     async def update_settings(self, db: AsyncSession, user_id: str, settings_data: dict) -> PaymentSettings:
-        settings = await self.get_settings(db, user_id)
+        # Query the DB directly: get_settings() returns a virtual object when no
+        # row exists, so checking its truthiness would never persist a new row.
+        result = await db.execute(select(PaymentSettings).where(PaymentSettings.user_id == user_id))
+        settings = result.scalars().first()
         if not settings:
             settings = PaymentSettings(user_id=user_id)
             db.add(settings)
 
-        # Encrypt sensitive keys before saving
-        if "stripe_secret_key" in settings_data:
+        # Encrypt sensitive keys before saving (skip empty values so a later
+        # save that didn't re-enter a secret doesn't wipe the stored one)
+        if settings_data.get("stripe_secret_key"):
             settings_data["stripe_secret_key"] = encrypt_value(settings_data["stripe_secret_key"])
-        if "stripe_webhook_secret" in settings_data:
+        if settings_data.get("stripe_webhook_secret"):
             settings_data["stripe_webhook_secret"] = encrypt_value(settings_data["stripe_webhook_secret"])
-        if "paypal_client_secret" in settings_data:
+        if settings_data.get("paypal_client_secret"):
             settings_data["paypal_client_secret"] = encrypt_value(settings_data["paypal_client_secret"])
 
         for key, value in settings_data.items():

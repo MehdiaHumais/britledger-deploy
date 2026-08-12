@@ -11,10 +11,13 @@ POST   /invoices/{id}/payments
 POST   /invoices/export/pdf  (no auth required — uses local data from frontend)
 """
 
+import time
+import uuid
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, status, Response, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response, Body
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -33,6 +36,11 @@ from app.services.invoice_service import InvoiceService
 from app.services.pdf_service import PDFService
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
+
+# In-memory cache for generated PDFs (token -> {bytes, filename, expires})
+# Used so the client can trigger the download from a real URL (browser/IDM friendly).
+_pdf_cache: dict[str, dict] = {}
+_pdf_ttl = 300
 
 
 # ── IMPORTANT: /export/pdf MUST be declared before /{invoice_id} routes ──────
@@ -56,16 +64,45 @@ async def export_invoice_pdf_raw(
         address = payload.get("company_address") or ""
         vat_number = payload.get("vat_number") or ""
         name = company_name
+        full_name = company_name
 
     pdf_bytes = PDFService.generate_invoice_pdf(payload, _MockUser())
 
     invoice_number = payload.get("invoice_number") or payload.get("number") or "draft"
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'inline; filename="invoice_{invoice_number}.pdf"'
+    filename = f"invoice_{invoice_number}.pdf"
+    token = uuid.uuid4().hex
+    _pdf_cache[token] = {
+        "bytes": pdf_bytes,
+        "filename": filename,
+        "expires": time.time() + _pdf_ttl,
+    }
+    return JSONResponse(
+        {
+            "success": True,
+            "message": "PDF generated.",
+            "data": {"token": token, "filename": filename},
         }
+    )
+
+
+@router.get(
+    "/export/pdf/{token}",
+    summary="Download a previously generated invoice PDF by token",
+)
+async def download_invoice_pdf(token: str):
+    """
+    Serves the generated PDF from the in-memory cache. The token acts as a
+    short-lived, unguessable capability so a plain browser/IDM download can be
+    triggered from a real URL without any Authorization header.
+    """
+    entry = _pdf_cache.get(token)
+    if not entry or entry["expires"] < time.time():
+        _pdf_cache.pop(token, None)
+        raise HTTPException(status_code=404, detail="Download link expired or invalid.")
+    return Response(
+        content=entry["bytes"],
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{entry["filename"]}"'},
     )
 
 

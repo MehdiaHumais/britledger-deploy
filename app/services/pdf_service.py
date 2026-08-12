@@ -1,9 +1,33 @@
 import io
+import json
 from datetime import datetime
 from fpdf import FPDF
 from app.models.user import User
 
 class PDFService:
+    @staticmethod
+    def _items_list(items):
+        """Normalize items to a list of dicts, tolerant of JSON strings / None."""
+        if isinstance(items, str):
+            try:
+                items = json.loads(items)
+            except Exception:
+                items = []
+        if not isinstance(items, list):
+            items = []
+        return [i for i in items if isinstance(i, dict)]
+
+    @staticmethod
+    def _line_total(item, qty, unit_price):
+        """Per-item total: prefer a stored total, else compute qty * unit_price."""
+        stored = item.get("total")
+        if stored is not None:
+            try:
+                return float(stored)
+            except (TypeError, ValueError):
+                pass
+        return qty * unit_price
+
     @staticmethod
     def generate_invoice_pdf(invoice_data: dict, user: User) -> bytes:
         """Generate a beautiful PDF invoice using FPDF."""
@@ -33,7 +57,7 @@ class PDFService:
         pdf.set_text_color(*text_color)
         
         # Use company_name from data if available, else user's name
-        company_name = invoice_data.get("company_name") or user.full_name or "My Business"
+        company_name = invoice_data.get("company_name") or getattr(user, "full_name", None) or getattr(user, "name", None) or "My Business"
         pdf.cell(100, 8, company_name, new_x="LMARGIN", new_y="NEXT")
         
         pdf.set_font("helvetica", "", 10)
@@ -103,19 +127,22 @@ class PDFService:
         pdf.set_text_color(*text_color)
         pdf.set_font("helvetica", "", 10)
         
-        items = invoice_data.get("items", [])
+        items = PDFService._items_list(invoice_data.get("items"))
         for item in items:
+            qty = float(item.get("quantity", 0) or 0)
+            unit_price = float(item.get("unit_price", item.get("unitPrice", item.get("price", 0))) or 0)
+            line_total = PDFService._line_total(item, qty, unit_price)
             pdf.cell(90, 10, f" {item.get('description', '')}", border="B")
             pdf.cell(30, 10, str(item.get("quantity", 0)), align="C", border="B")
-            pdf.cell(35, 10, f"${float(item.get('unit_price', 0)):.2f}", align="R", border="B")
-            pdf.cell(35, 10, f"${float(item.get('total', 0)):.2f}", align="R", border="B", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(35, 10, f"${unit_price:.2f}", align="R", border="B")
+            pdf.cell(35, 10, f"${line_total:.2f}", align="R", border="B", new_x="LMARGIN", new_y="NEXT")
 
         pdf.ln(10)
 
-        # Totals
-        subtotal = float(invoice_data.get("subtotal", 0))
-        tax_total = float(invoice_data.get("tax_total", 0))
-        total = float(invoice_data.get("total", 0))
+        # Totals (accept both camel/snake dict keys, e.g. model_dump() vs inv_data)
+        subtotal = float(invoice_data.get("subtotal", invoice_data.get("subtotal_amount", 0)) or 0)
+        tax_total = float(invoice_data.get("tax_total", invoice_data.get("tax_amount", 0)) or 0)
+        total = float(invoice_data.get("total", invoice_data.get("total_amount", 0)) or 0)
         advance_payment = float(invoice_data.get("advance_payment", 0) or 0)
 
         pdf.set_x(120)
@@ -181,7 +208,7 @@ class PDFService:
         pdf.set_text_color(*text_color)
         
         # Use company_name from data if available, else user's name
-        company_name = quotation_data.get("company_name") or user.full_name or "My Business"
+        company_name = quotation_data.get("company_name") or getattr(user, "full_name", None) or getattr(user, "name", None) or "My Business"
         pdf.cell(100, 8, company_name, new_x="LMARGIN", new_y="NEXT")
         
         pdf.set_font("helvetica", "", 10)
@@ -251,12 +278,15 @@ class PDFService:
         pdf.set_text_color(*text_color)
         pdf.set_font("helvetica", "", 10)
         
-        items = quotation_data.get("items", [])
+        items = PDFService._items_list(quotation_data.get("items"))
         for item in items:
+            qty = float(item.get("quantity", 0) or 0)
+            unit_price = float(item.get("unit_price", item.get("unitPrice", item.get("price", 0))) or 0)
+            line_total = PDFService._line_total(item, qty, unit_price)
             pdf.cell(90, 10, f" {item.get('description', '')}", border="B")
             pdf.cell(30, 10, str(item.get("quantity", 0)), align="C", border="B")
-            pdf.cell(35, 10, f"${float(item.get('unit_price', 0)):.2f}", align="R", border="B")
-            pdf.cell(35, 10, f"${float(item.get('total', 0)):.2f}", align="R", border="B", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(35, 10, f"${unit_price:.2f}", align="R", border="B")
+            pdf.cell(35, 10, f"${line_total:.2f}", align="R", border="B", new_x="LMARGIN", new_y="NEXT")
 
         pdf.ln(10)
 

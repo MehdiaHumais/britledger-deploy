@@ -24,13 +24,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           const res = await api.get('/api/v1/auth/me', { timeout: 5000 })
           const userData = res.data?.data
           if (!userData) { throw new Error('No user data') }
+          const prev = useAuthStore.getState().user
           useAuthStore.getState().setUser({
+            ...prev,
             id: userData.id,
-            name: userData.full_name || userData.email,
-            email: userData.email,
-            avatar: userData.avatar || undefined,
-            role: userData.role,
-            is_fingerprint: userData.is_fingerprint,
+            name: prev?.name || userData.full_name || userData.email,
+            email: userData.email || prev?.email,
+            avatar: userData.avatar || prev?.avatar || undefined,
+            role: userData.role || prev?.role,
+            is_fingerprint: userData.is_fingerprint ?? prev?.is_fingerprint,
+            company_name: userData.company_name || prev?.company_name,
+            vat_number: userData.vat_number || prev?.vat_number,
+            address: userData.address || prev?.address,
+            email_notifications: userData.email_notifications ?? prev?.email_notifications,
+            ai_notifications: userData.ai_notifications ?? prev?.ai_notifications,
           })
         } catch (err: any) {
           if (err.response?.status === 401 || err.response?.status === 403) {
