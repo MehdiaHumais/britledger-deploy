@@ -12,7 +12,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false)
   const checkedRef = useRef(false)
 
-  const publicRoutes = ['/login', '/register', '/forgot-password']
+  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
 
   useEffect(() => {
     if (checkedRef.current) return

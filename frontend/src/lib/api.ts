@@ -48,6 +48,8 @@ export const authApi = {
   fingerprintRegister: (data: any) => api.post('/api/v1/auth/fingerprint/register', data),
   fingerprintLogin: (data: any) => api.post('/api/v1/auth/fingerprint/login', data),
   fingerprintUpgrade: (data: any) => api.post('/api/v1/auth/fingerprint/upgrade', data),
+  forgotPassword: (email: string) => api.post('/api/v1/auth/forgot-password', { email }),
+  resetPassword: (token: string, new_password: string) => api.post('/api/v1/auth/reset-password', { token, new_password }),
 }
 
 export const userApi = {

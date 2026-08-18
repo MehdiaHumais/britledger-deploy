@@ -5,6 +5,15 @@ from typing import List, Optional
 
 from app.core.config import settings
 
+def resolve_avatar_url(avatar, user_id):
+    """Convert a base64 data-URL avatar into a public URL that email clients can load."""
+    if not avatar:
+        return None
+    if avatar.startswith("data:"):
+        base = os.getenv("PUBLIC_API_URL") or getattr(settings, "PUBLIC_API_URL", "https://ledger.britsyncai.com")
+        return f"{base.rstrip('/')}/api/v1/users/{user_id}/avatar"
+    return avatar
+
 class EmailService:
     def __init__(self):
         resend.api_key = settings.EMAIL_API_KEY
@@ -30,7 +39,9 @@ class EmailService:
         from_name = getattr(settings, "COMPANY_NAME", None) or settings.APP_NAME 
         from_email = settings.SENDER_EMAIL or "onboarding@resend.dev"
 
-        personalized_subject = f"{subject} from {from_name}" if from_name not in subject else subject
+        if from_name and " from " not in subject.lower() and from_name not in subject:
+            subject = f"{subject} from {from_name}"
+        personalized_subject = subject
 
         from bs4 import BeautifulSoup
         try:
@@ -81,6 +92,67 @@ class EmailService:
             print(f"[EMAIL_ERROR] {error_msg}")
             return None, error_msg
 
+    def send_password_reset_email(self, to_email: str, reset_token: str) -> tuple:
+        """Send a password reset link via Resend."""
+        resend.api_key = settings.EMAIL_API_KEY
+        base = os.getenv("FRONTEND_URL") or getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+        reset_url = f"{base.rstrip('/')}/reset-password?token={reset_token}"
+        from_name = getattr(settings, "COMPANY_NAME", None) or settings.APP_NAME
+        from_email = settings.SENDER_EMAIL or "onboarding@resend.dev"
+
+        subject = "Reset your BritLedger AI password"
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc;">
+            <div style="background-color: #f8fafc; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                    <div style="background-color: #2563eb; padding: 40px 20px; text-align: center; color: #ffffff;">
+                        <h1 style="margin: 0; font-size: 28px; letter-spacing: -0.025em;">BritLedger AI</h1>
+                    </div>
+                    <div style="padding: 40px;">
+                        <h2 style="margin-top: 0; font-size: 20px;">Reset your password</h2>
+                        <p>We received a request to reset your password for your BritLedger AI account.</p>
+                        <p>Click the button below to choose a new password. This link expires in 15 minutes.</p>
+                        <div style="text-align: center; margin: 32px 0;">
+                            <a href="{reset_url}" style="display: inline-block; padding: 16px 32px; background-color: #2563eb; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 700;">Reset Password</a>
+                        </div>
+                        <p style="color: #64748b; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+                        <p style="color: #2563eb; font-size: 14px; word-break: break-all;">{reset_url}</p>
+                        <p style="color: #64748b; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
+                    </div>
+                    <div style="padding: 32px; text-align: center; font-size: 13px; color: #64748b; background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+                        <p style="margin: 0;">&copy; 2026 BritLedger AI. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        text = (
+            "Reset your BritLedger AI password\n\n"
+            "We received a request to reset your password for your BritLedger AI account.\n\n"
+            f"Click the link below to choose a new password (expires in 15 minutes):\n\n"
+            f"{reset_url}\n\n"
+            "If you didn't request this, you can safely ignore this email."
+        )
+        try:
+            params = {
+                "from": f"{from_name} <{from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+                "text": text,
+            }
+            result = resend.Emails.send(params)
+            print(f"[EMAIL_SUCCESS] Password reset email sent to {to_email}")
+            return result, None
+        except Exception as e:
+            error_msg = str(e)
+            print(f"[EMAIL_ERROR] Password reset send failed: {error_msg}")
+            return None, error_msg
+
     def _generate_items_table(self, items, currency="GBP"):
         if not items:
             return ""
@@ -125,7 +197,7 @@ class EmailService:
         </table>
         """
 
-    def get_invoice_html(self, invoice, company_settings, payment_links, sender_email=None, sender_name=None):
+    def get_invoice_html(self, invoice, company_settings, payment_links, sender_email=None, sender_name=None, sender_logo=None):
         stripe_link = payment_links.get("stripe")
         items_html = self._generate_items_table(getattr(invoice, "items", []), getattr(invoice, "currency", "GBP"))
         total = float(invoice.total_amount or 0)
@@ -151,8 +223,12 @@ class EmailService:
             due_amount = balance if advance > 0 else total
             message = "Hi there, here is your invoice. You can pay securely using the button below or review the attached PDF for a full breakdown."
             pay_button = f'<a href="{stripe_link}" class="button">Pay Securely Online</a>' if stripe_link else ''
+        sender_logo_html = ""
+        if sender_logo:
+            sender_logo_html = f'<img src="{sender_logo}" alt="Logo" style="max-height:48px; max-width:180px; object-fit:contain; display:block; margin:6px 0;" />'
         sender_block = f"""<div style="background-color: #eef2ff; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #2563eb;">
             <div style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Sent By</div>
+            {sender_logo_html}
             <div style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;">{sender_name or 'BritLedger AI'}</div>
             <div style="font-size: 14px; color: #2563eb; margin-top: 2px;">{sender_email or ''}</div>
         </div>""" if sender_email else ""
@@ -204,7 +280,7 @@ class EmailService:
                         {f'<div style="margin-top: 24px; font-size: 14px; color: #475569;"><strong>Notes:</strong><br/>{notes_html}</div>' if notes_html else ''}
                     </div>
                     <div class="footer">
-                        <p><strong>{company_settings.account_name if company_settings else 'BritLedger AI'}</strong></p>
+                        <p><strong>{sender_name or (company_settings.account_name if company_settings else 'BritLedger AI')}</strong></p>
                         <p>{company_settings.company_address if company_settings else ''}</p>
                         <p style="margin-top: 16px;">&copy; 2026 BritLedger AI. All rights reserved.</p>
                     </div>
@@ -214,11 +290,15 @@ class EmailService:
         </html>
         """
 
-    def get_quotation_html(self, quotation, company_settings, payment_links=None, sender_email=None, sender_name=None):
+    def get_quotation_html(self, quotation, company_settings, payment_links=None, sender_email=None, sender_name=None, sender_logo=None):
         stripe_link = (payment_links or {}).get("stripe")
         items_html = self._generate_items_table(getattr(quotation, "items", []), getattr(quotation, "currency", "GBP"))
+        sender_logo_html = ""
+        if sender_logo:
+            sender_logo_html = f'<img src="{sender_logo}" alt="Logo" style="max-height:48px; max-width:180px; object-fit:contain; display:block; margin:6px 0;" />'
         sender_block = f"""<div style="background-color: #eef2ff; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #6366f1;">
             <div style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Sent By</div>
+            {sender_logo_html}
             <div style="font-size: 16px; font-weight: 600; color: #1e293b; margin-top: 4px;">{sender_name or 'BritLedger AI'}</div>
             <div style="font-size: 14px; color: #6366f1; margin-top: 2px;">{sender_email or ''}</div>
         </div>""" if sender_email else ""
@@ -267,7 +347,7 @@ class EmailService:
                         {f'<div style="margin-top: 24px; font-size: 14px; color: #475569;"><strong>Notes / Terms:</strong><br/>{notes_html}</div>' if notes_html else ''}
                     </div>
                     <div class="footer">
-                        <p><strong>{company_settings.account_name if company_settings else 'BritLedger AI'}</strong></p>
+                        <p><strong>{sender_name or (company_settings.account_name if company_settings else 'BritLedger AI')}</strong></p>
                         <p>{company_settings.company_address if company_settings else ''}</p>
                         <p style="margin-top: 16px;">&copy; 2026 BritLedger AI. All rights reserved.</p>
                     </div>

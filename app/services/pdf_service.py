@@ -1,10 +1,62 @@
+import base64
 import io
 import json
 from datetime import datetime
 from fpdf import FPDF
+from PIL import Image
 from app.models.user import User
 
 class PDFService:
+    @staticmethod
+    def _display_name(user) -> str:
+        """Best-effort display name for the sender / 'from' block.
+
+        Prefers the profile/full name (the field edited under Settings →
+        Profile) so a renamed sender always shows up on the PDF, and only
+        falls back to the company name / defaults.
+        """
+        return (
+            getattr(user, "full_name", None)
+            or getattr(user, "name", None)
+            or getattr(user, "company_name", None)
+            or "My Business"
+        )
+
+    @staticmethod
+    def _logo_meta(logo):
+        """Decode a base64 data-URL logo into (io.BytesIO, img_w, img_h) or None."""
+        if not logo or not isinstance(logo, str) or not logo.startswith("data:"):
+            return None
+        try:
+            header, b64 = logo.split(",", 1)
+            buf = io.BytesIO(base64.b64decode(b64))
+            with Image.open(buf) as im:
+                w, h = im.size
+            buf.seek(0)
+            return buf, w, h
+        except Exception:
+            return None
+
+    @staticmethod
+    def _render_logo(pdf, logo):
+        """Render the sender logo (if any) at the current position, preserving aspect ratio."""
+        meta = PDFService._logo_meta(logo)
+        if not meta:
+            return False
+        buf, w_px, h_px = meta
+        max_w = 55
+        max_h = 20
+        ratio = w_px / max(h_px, 1)
+        if ratio >= max_w / max_h:
+            box_w = max_w
+            box_h = max_w / ratio
+        else:
+            box_h = max_h
+            box_w = max_h * ratio
+        pdf.image(buf, x=10, y=pdf.get_y(), w=box_w, h=box_h)
+        pdf.set_y(pdf.get_y() + max_h + 2)
+        return True
+
     @staticmethod
     def _items_list(items):
         """Normalize items to a list of dicts, tolerant of JSON strings / None."""
@@ -52,24 +104,24 @@ class PDFService:
             pdf.cell(0, 12, "PAID", align="R", new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(*text_color)
 
-        # Your Details (Left)
-        pdf.set_font("helvetica", "B", 14)
-        pdf.set_text_color(*text_color)
-        
-        # Use company_name from data if available, else user's name
-        company_name = invoice_data.get("company_name") or getattr(user, "full_name", None) or getattr(user, "name", None) or "My Business"
-        pdf.cell(100, 8, company_name, new_x="LMARGIN", new_y="NEXT")
-        
+        # Your Details (Left) — logo (avatar) if present, otherwise the business name
+        logo = invoice_data.get("company_logo") or getattr(user, "avatar", None)
+        if not PDFService._render_logo(pdf, logo):
+            pdf.set_font("helvetica", "B", 14)
+            pdf.set_text_color(*text_color)
+            company_name = invoice_data.get("company_name") or PDFService._display_name(user)
+            pdf.cell(100, 8, company_name, new_x="LMARGIN", new_y="NEXT")
+
         pdf.set_font("helvetica", "", 10)
         pdf.set_text_color(*muted_color)
         pdf.cell(100, 5, str(user.email or ""), new_x="LMARGIN", new_y="NEXT")
         
         # Use address from data/settings if available
-        address = invoice_data.get("company_address")
+        address = invoice_data.get("company_address") or getattr(user, "address", None)
         if address:
             pdf.cell(100, 5, str(address), new_x="LMARGIN", new_y="NEXT")
             
-        vat = invoice_data.get("company_vat")
+        vat = invoice_data.get("company_vat") or getattr(user, "vat_number", None)
         if vat:
             pdf.cell(100, 5, f"VAT No: {vat}", new_x="LMARGIN", new_y="NEXT")
 
@@ -95,7 +147,8 @@ class PDFService:
         pdf.set_font("helvetica", "", 10)
         pdf.cell(30, 5, str(invoice_data.get("due_date", "")), align="R")
 
-        pdf.set_xy(10, 70)
+        # Position client block below the from-section (logo may push it down)
+        pdf.set_xy(10, max(pdf.get_y() + 5, 70))
 
         # Client Details (Left)
         pdf.set_font("helvetica", "B", 12)
@@ -203,24 +256,24 @@ class PDFService:
         pdf.set_text_color(*primary_color)
         pdf.cell(0, 15, "QUOTATION", align="R", new_x="LMARGIN", new_y="NEXT")
 
-        # Your Details (Left)
-        pdf.set_font("helvetica", "B", 14)
-        pdf.set_text_color(*text_color)
-        
-        # Use company_name from data if available, else user's name
-        company_name = quotation_data.get("company_name") or getattr(user, "full_name", None) or getattr(user, "name", None) or "My Business"
-        pdf.cell(100, 8, company_name, new_x="LMARGIN", new_y="NEXT")
-        
+        # Your Details (Left) — logo (avatar) if present, otherwise the business name
+        logo = quotation_data.get("company_logo") or getattr(user, "avatar", None)
+        if not PDFService._render_logo(pdf, logo):
+            pdf.set_font("helvetica", "B", 14)
+            pdf.set_text_color(*text_color)
+            company_name = quotation_data.get("company_name") or PDFService._display_name(user)
+            pdf.cell(100, 8, company_name, new_x="LMARGIN", new_y="NEXT")
+
         pdf.set_font("helvetica", "", 10)
         pdf.set_text_color(*muted_color)
         pdf.cell(100, 5, str(user.email or ""), new_x="LMARGIN", new_y="NEXT")
         
         # Use address from data/settings if available
-        address = quotation_data.get("company_address")
+        address = quotation_data.get("company_address") or getattr(user, "address", None)
         if address:
             pdf.cell(100, 5, str(address), new_x="LMARGIN", new_y="NEXT")
             
-        vat = quotation_data.get("company_vat")
+        vat = quotation_data.get("company_vat") or getattr(user, "vat_number", None)
         if vat:
             pdf.cell(100, 5, f"VAT No: {vat}", new_x="LMARGIN", new_y="NEXT")
 
@@ -246,7 +299,8 @@ class PDFService:
         pdf.set_font("helvetica", "", 10)
         pdf.cell(30, 5, str(quotation_data.get("expiry_date", "")), align="R")
 
-        pdf.set_xy(10, 70)
+        # Position client block below the from-section (logo may push it down)
+        pdf.set_xy(10, max(pdf.get_y() + 5, 70))
 
         # Client Details (Left)
         pdf.set_font("helvetica", "B", 12)

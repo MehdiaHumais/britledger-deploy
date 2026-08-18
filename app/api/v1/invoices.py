@@ -63,6 +63,7 @@ async def export_invoice_pdf_raw(
         email = payload.get("company_email") or ""
         address = payload.get("company_address") or ""
         vat_number = payload.get("vat_number") or ""
+        avatar = payload.get("company_logo") or payload.get("logo") or ""
         name = company_name
         full_name = company_name
 

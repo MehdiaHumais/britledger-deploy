@@ -1,5 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+import base64
+import re
 from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.dependencies import get_current_user
@@ -41,3 +44,24 @@ async def update_me(
     await db.commit()
     await db.refresh(current_user)
     return APIResponse(data=current_user, message="Profile updated successfully")
+
+@router.get("/{user_id}/avatar", include_in_schema=False)
+async def get_user_avatar(user_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    if not user or not user.avatar:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    data = user.avatar
+    media_type = "image/png"
+    if data.startswith("data:"):
+        header, _, b64 = data.partition(",")
+        mime = re.search(r"data:([^;]+)", header)
+        if mime:
+            media_type = mime.group(1)
+    else:
+        b64 = data
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid avatar data")
+    return Response(content=raw, media_type=media_type)

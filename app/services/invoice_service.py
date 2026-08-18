@@ -9,6 +9,7 @@ from app.services.stripe_service import StripeService
 from app.services.email_service import EmailService
 from app.services.payment_service import payment_service
 from app.services.pdf_service import PDFService
+from app.services.email_service import EmailService, resolve_avatar_url
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
 from fastapi import HTTPException
 import os
@@ -130,6 +131,11 @@ class InvoiceService:
             print(f"[STEP 7] Generating PDF...")
             effective_status = requested_status or invoice.status
             effective_status_str = effective_status.value if hasattr(effective_status, "value") else str(effective_status)
+
+            # Sender identity comes from the user's profile (Settings), NOT the
+            # bank account name in payment settings — that way updated names
+            # always appear on the PDF/invoice instead of a stale default.
+            display_name = (user.full_name if user and user.full_name else (user.company_name if user and user.company_name else (settings.account_name if settings and settings.account_name else "My Business")))
             inv_data = {
                 "invoice_number": invoice.invoice_number,
                 "issue_date": invoice.issue_date,
@@ -142,9 +148,10 @@ class InvoiceService:
                 "status": effective_status_str,
                 "items": invoice.items,
                 "notes": invoice.notes,
-                "company_name": settings.account_name if settings else None,
-                "company_address": settings.company_address if settings else None,
-                "company_vat": settings.company_vat_number if settings else None,
+                "company_name": display_name,
+                "company_logo": user.avatar if user else None,
+                "company_address": (settings.company_address if settings else None) or (user.address if user else None),
+                "company_vat": (settings.company_vat_number if settings else None) or (user.vat_number if user else None),
                 "client": {
                     "name": client.name if client else "Valued Client", 
                     "email": target_email, 
@@ -160,7 +167,7 @@ class InvoiceService:
                 "content": encoded.decode('utf-8')
             }]
 
-            company_display_name = settings.account_name if settings and settings.account_name else (user.full_name if user and user.full_name else "BritLedger AI")
+            company_display_name = display_name
                 
             subject = getattr(payload, 'subject', None) or f"Invoice {invoice.invoice_number} from {company_display_name}"
             
@@ -180,7 +187,7 @@ class InvoiceService:
 
             email_svc = EmailService()
             sender_email = user.email if user else None
-            html = email_svc.get_invoice_html(safe_invoice, settings, payment_links, sender_email=sender_email, sender_name=company_display_name)
+            html = email_svc.get_invoice_html(safe_invoice, settings, payment_links, sender_email=sender_email, sender_name=company_display_name, sender_logo=resolve_avatar_url(user.avatar if user else None, user.id if user else None))
             print(f"[STEP 9] Sending email to {target_email}...")
             
             result, error_msg = await asyncio.wait_for(

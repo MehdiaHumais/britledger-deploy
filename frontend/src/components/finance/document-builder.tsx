@@ -10,6 +10,7 @@ import { Plus, Trash2, Send, Save, FileText, AlertCircle, ChevronDown, Loader2, 
 import { formatCurrency, calculateVAT } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import db from '@/lib/local-db'
+import { useAuthStore } from '@/store/auth-store'
 
 function escapeHtml(s: string): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -36,6 +37,9 @@ interface DocumentBuilderProps {
 
 export function DocumentBuilder({ type, initialNumber, initialData, onSave }: DocumentBuilderProps) {
   const { success, error: toastError, warning } = useToast()
+  const { user } = useAuthStore()
+  const senderName = user?.name || user?.company_name || ''
+  const senderLogo = user?.avatar || ''
   const [documentNumber, setDocumentNumber] = useState(initialData?.number || initialNumber || '')
   const [selectedClientId, setSelectedClientId] = useState(initialData?.clientId || '')
   const [clientName, setClientName] = useState(initialData?.clientName || initialData?.client || '')
@@ -201,7 +205,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
 
       const response = await api.send(backendId, {
         to_email: email,
-        subject: `Your ${type} from BritLedger AI (${documentNumber})`,
+        subject: `Your ${type} from ${senderName || 'BritLedger AI'} (${documentNumber})`,
         personal_message: `Hello ${clientName}, please find your ${type} details below.`,
         ...(type === 'invoice' ? { include_payment_link: !paid, status: paid ? 'PAID' : 'SENT' } : {}),
       })
@@ -240,6 +244,9 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
       return `<tr><td>${escapeHtml(item.description)}</td><td class="center">${item.quantity}</td><td class="right">£${item.unitPrice.toFixed(2)}</td><td class="center">${item.taxRate}%</td><td class="right">£${lineTotal.toFixed(2)}</td></tr>`
     }).join('')
     const notesHtml = notes ? notesToHtml(notes) : ''
+    const brandHtml = senderLogo
+      ? `<img src="${senderLogo}" alt="${escapeHtml(senderName || 'Brand')}" style="max-height:60px;max-width:220px;object-fit:contain;" />`
+      : `<h1>${escapeHtml(senderName || 'BritLedger AI')}</h1>`
     const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${docTitle} ${documentNumber}</title><style>
       *{margin:0;padding:0;box-sizing:border-box}
       body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#f1f5f9;padding:20px;font-size:13px}
@@ -278,7 +285,7 @@ export function DocumentBuilder({ type, initialNumber, initialData, onSave }: Do
       }
       @media print{body{background:#fff;padding:0}.doc-card{box-shadow:none}}
     </style></head><body><div class="doc-card">
-      <div class="header"><div class="brand"><h1>Brit<span>Ledger</span> AI</h1></div><div class="doc-label"><h2>${docTitle}</h2></div></div>
+      <div class="header"><div class="brand">${brandHtml}</div><div class="doc-label"><h2>${docTitle}</h2></div></div>
       <div class="meta-grid">
         <div><div class="meta-box"><h4>Bill To</h4><p><strong>${clientName}</strong></p>${clientEmail ? '<p>'+clientEmail+'</p>' : ''}${clientPhone ? '<p>'+clientPhone+'</p>' : ''}</div></div>
         <div><div class="meta-box"><h4>Details</h4><p>Issue Date: <strong>${issuedDateStr}</strong></p>${dueDate ? '<p>Due: <strong>'+dueDate+'</strong></p>' : ''}${type === 'invoice' ? '<p>Status: <strong style="color:' + (paid ? '#16a34a' : '#ef4444') + '">' + (paid ? 'PAID' : 'UNPAID') + '</strong></p>' : ''}</div></div>

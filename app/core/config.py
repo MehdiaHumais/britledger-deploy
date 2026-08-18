@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # CORS
     FRONTEND_URL: str = "https://ledger.britsyncai.com"
+    PUBLIC_API_URL: str = "https://ledger.britsyncai.com"
 
     ALLOWED_ORIGINS: str = "https://ledger.britsyncai.com,capacitor://localhost,http://localhost,http://localhost:3000"
     @property

@@ -7,44 +7,26 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { authApi } from '@/lib/api'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    
+    setError('')
+
     try {
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: email,
-          subject: 'BritLedger AI - Password Reset Request',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-              <div style="background-color: #3b82f6; padding: 20px; text-align: center; color: white;">
-                <h2>BritLedger AI</h2>
-              </div>
-              <div style="padding: 20px;">
-                <p>Hello,</p>
-                <p>We received a request to reset your password for your BritLedger AI account.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="#" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
-                </div>
-                <p style="color: #64748b; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
-              </div>
-            </div>
-          `
-        })
-      })
-      
+      const res = await authApi.forgotPassword(email)
+      console.log('[FORGOT]', res.data)
       setIsSubmitted(true)
-    } catch (error) {
-      console.error("Failed to send reset email:", error)
+    } catch (err: any) {
+      console.error('Failed to send reset email:', err)
+      setError(err?.response?.data?.detail || 'Failed to send reset link. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -86,6 +68,9 @@ export default function ForgotPasswordPage() {
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
+                {error && (
+                  <p className="text-sm text-red-600">{error}</p>
+                )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Sending link...' : 'Send Reset Link'}
                 </Button>
@@ -97,7 +82,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <h3 className="text-lg font-semibold">Check your email</h3>
                 <p className="text-sm text-muted-foreground mt-2">
-                  We've sent a password reset link to <span className="font-medium">{email}</span>
+                  If an account exists for <span className="font-medium">{email}</span>, we've sent a password reset link to it.
                 </p>
                 <Button variant="outline" className="mt-6 w-full" onClick={() => setIsSubmitted(false)}>
                   Resend link

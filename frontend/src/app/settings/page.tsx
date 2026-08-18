@@ -150,6 +150,10 @@ export default function SettingsPage() {
       // Update Store
       setUser({ ...user, name: profile.name, email: profile.email, avatar: profile.avatar })
       
+      // Sync the updated name/avatar to the backend so PDFs & emails sent
+      // server-side (send invoice / send quotation) show the new name too.
+      await userApi.updateMe({ full_name: profile.name, avatar: profile.avatar })
+      
       success('Profile Updated', 'Your profile information has been saved.')
     } catch (err) {
       // Backend is offline, fallback seamlessly

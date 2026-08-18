@@ -20,3 +20,18 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
+
+def create_password_reset_token(subject: Union[str, Any]) -> str:
+    expire = datetime.utcnow() + timedelta(minutes=settings.JWT_RESET_TOKEN_EXPIRE_MINUTES)
+    to_encode = {"exp": expire, "sub": str(subject), "type": "password_reset"}
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+def verify_password_reset_token(token: str) -> Union[str, None]:
+    from jose import JWTError
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("type") != "password_reset":
+            return None
+        return payload.get("sub")
+    except JWTError:
+        return None

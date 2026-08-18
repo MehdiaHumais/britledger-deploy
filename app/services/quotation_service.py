@@ -8,7 +8,7 @@ from app.models.user import User
 from app.models.payment import PaymentSettings
 from app.services.payment_service import payment_service
 from app.services.stripe_service import StripeService
-from app.services.email_service import EmailService
+from app.services.email_service import EmailService, resolve_avatar_url
 from app.services.pdf_service import PDFService
 from app.schemas.quotation import QuotationCreate, QuotationUpdate
 from fastapi import HTTPException
@@ -119,6 +119,10 @@ class QuotationService:
                     print(f"[STEP 5.ERR] Stripe Error: {e}")
 
             print(f"[STEP 6] Generating PDF...")
+            # Sender identity comes from the user's profile (Settings), NOT the
+            # bank account name in payment settings — that way updated names
+            # always appear on the PDF/quotation instead of a stale default.
+            display_name = (user.full_name if user and user.full_name else (user.company_name if user and user.company_name else (settings.account_name if settings and settings.account_name else "My Business")))
             quot_data = {
                 "quotation_number": quotation.quotation_number,
                 "issue_date": quotation.issue_date,
@@ -129,9 +133,10 @@ class QuotationService:
                 "currency": quotation.currency,
                 "items": quotation.items,
                 "notes": quotation.notes,
-                "company_name": settings.account_name if settings else None,
-                "company_address": settings.company_address if settings else None,
-                "company_vat": settings.company_vat_number if settings else None,
+                "company_name": display_name,
+                "company_logo": user.avatar if user else None,
+                "company_address": (settings.company_address if settings else None) or (user.address if user else None),
+                "company_vat": (settings.company_vat_number if settings else None) or (user.vat_number if user else None),
                 "client": {
                     "name": client.name if client else "Valued Client", 
                     "email": target_email, 
@@ -160,10 +165,10 @@ class QuotationService:
                 items=quotation.items
             )
 
-            company_display_name = user.full_name if user and user.full_name else (settings.account_name if settings and settings.account_name else "BritLedger AI")
+            company_display_name = display_name
 
             sender_email = user.email if user else None
-            email_content = email_svc.get_quotation_html(safe_quotation, settings, payment_links, sender_email=sender_email, sender_name=company_display_name)
+            email_content = email_svc.get_quotation_html(safe_quotation, settings, payment_links, sender_email=sender_email, sender_name=company_display_name, sender_logo=resolve_avatar_url(user.avatar if user else None, user.id if user else None))
 
             print(f"[STEP 8] Sending email to {target_email}...")
             result, error_msg = await asyncio.wait_for(

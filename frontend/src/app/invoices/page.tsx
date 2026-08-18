@@ -133,10 +133,11 @@ export default function InvoicesPage() {
         client: { name: inv.client || '', email: '', address: '' },
       }
       if (user) {
-        if (user.company_name) payload.company_name = user.company_name
+        payload.company_name = user.name || user.company_name || ''
         if (user.email) payload.company_email = user.email
         if (user.address) payload.company_address = user.address
         if (user.vat_number) payload.vat_number = user.vat_number
+        if (user.avatar) payload.company_logo = user.avatar
       }
       const res = await invoiceApi.exportPdf(payload)
       const token = res.data?.data?.token
