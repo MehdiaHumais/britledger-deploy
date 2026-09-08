@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { User, Building, Shield, Bell, Loader2, CreditCard, UserCog } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
@@ -16,7 +18,8 @@ import { PaymentSettings } from '@/components/settings/payment-settings'
 import { AdminUsers } from '@/components/settings/admin-users'
 
 export default function SettingsPage() {
-  const { user, setUser } = useAuthStore()
+  const { user, setUser, logout } = useAuthStore()
+  const router = useRouter()
   const { success, error, warning, info } = useToast()
   const [activeTab, setActiveTab] = useState('profile')
   
@@ -195,34 +198,54 @@ export default function SettingsPage() {
   const handleSavePassword = async () => {
     if (!user) return
     const userData = db.users.findOne((u: any) => u.id === user.id)
-    
-    // Simulate verification
-    if (userData && userData.password && userData.password !== passwords.current) {
-      error('Incorrect Password', 'The current password you entered is wrong.')
-      return
-    }
-    
+
     if (passwords.new !== passwords.confirm) {
       error('Passwords Do Not Match', 'Your new password and confirmation do not match.')
       return
     }
-    
+
     if (passwords.new.length < 8) {
       warning('Password Too Short', 'Password must be at least 8 characters long.')
       return
     }
-    
+
+    // Verify the current password against the backend (authoritative — the local
+    // plaintext copy goes stale after an email reset, so it can't be trusted).
+    let verifiedOnline = false
+    try {
+      await api.post('/api/v1/auth/login', { email: (user.email || '').toLowerCase().trim(), password: passwords.current }, { timeout: 15000 })
+      verifiedOnline = true
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        error('Incorrect Password', 'The current password you entered is wrong.')
+        return
+      }
+      // Backend unreachable -> fall back to the local check for offline use.
+    }
+
+    if (!verifiedOnline) {
+      if (userData && userData.password && userData.password !== passwords.current) {
+        error('Incorrect Password', 'The current password you entered is wrong.')
+        return
+      }
+    }
+
     setIsSavingPassword(true)
     db.users.update(user.id, { password: passwords.new })
     setPasswords({ current: '', new: '', confirm: '' })
     try {
       await userApi.updateMe({ password: passwords.new })
-      success('Password Changed', 'Your password has been updated successfully.')
     } catch (err) {
-      success('Password Changed', 'Your password has been updated successfully.')
+      // Local-first: ignore backend errors
     } finally {
       setIsSavingPassword(false)
     }
+
+    // Force a session logout so the user signs back in with the new password.
+    try { localStorage.removeItem('britledger_token') } catch {}
+    logout()
+    sessionStorage.setItem('britledger_logout_reason', 'Your password has been changed. Please log in with your new password.')
+    router.push('/login')
   }
 
   const handleToggleEmailNotifs = async () => {
@@ -462,24 +485,21 @@ export default function SettingsPage() {
                     <div className="space-y-4 max-w-md">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Current Password</label>
-                        <Input 
-                          type="password" 
+                        <PasswordInput 
                           value={passwords.current}
                           onChange={(e) => setPasswords({...passwords, current: e.target.value})}
                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">New Password</label>
-                        <Input 
-                          type="password" 
+                        <PasswordInput 
                           value={passwords.new}
                           onChange={(e) => setPasswords({...passwords, new: e.target.value})}
                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Confirm New Password</label>
-                        <Input 
-                          type="password" 
+                        <PasswordInput 
                           value={passwords.confirm}
                           onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
                         />
@@ -509,8 +529,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Password</label>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       placeholder="Min 8 characters"
                       value={backupPassword}
                       onChange={(e) => setBackupPassword(e.target.value)}

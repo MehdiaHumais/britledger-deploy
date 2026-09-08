@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import db from '@/lib/local-db'
 import { useAuthStore } from '@/store/auth-store'
 import api from '@/lib/api'
@@ -75,8 +76,7 @@ export function FingerprintCredentialsModal({ open, onClose }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Password</label>
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="Min 8 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

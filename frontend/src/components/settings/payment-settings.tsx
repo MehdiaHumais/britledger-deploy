@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -141,8 +142,7 @@ export function PaymentSettings() {
               </div>
               <div className="grid gap-2">
                 <Label>Stripe Secret Key</Label>
-                <Input 
-                  type="password" 
+                <PasswordInput 
                   placeholder="sk_live_..." 
                   value={settings.stripe_secret_key}
                   onChange={(e) => setSettings({...settings, stripe_secret_key: e.target.value})}
@@ -150,8 +150,7 @@ export function PaymentSettings() {
               </div>
               <div className="grid gap-2">
                 <Label>Webhook Secret</Label>
-                <Input 
-                  type="password" 
+                <PasswordInput 
                   placeholder="whsec_..." 
                   value={settings.stripe_webhook_secret}
                   onChange={(e) => setSettings({...settings, stripe_webhook_secret: e.target.value})}
@@ -195,8 +194,7 @@ export function PaymentSettings() {
               </div>
               <div className="grid gap-2">
                 <Label>PayPal Client Secret</Label>
-                <Input 
-                  type="password" 
+                <PasswordInput 
                   placeholder="Enter Client Secret" 
                   value={settings.paypal_client_secret}
                   onChange={(e) => setSettings({...settings, paypal_client_secret: e.target.value})}

@@ -95,7 +95,7 @@ class EmailService:
     def send_password_reset_email(self, to_email: str, reset_token: str) -> tuple:
         """Send a password reset link via Resend."""
         resend.api_key = settings.EMAIL_API_KEY
-        base = os.getenv("FRONTEND_URL") or getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+        base = os.getenv("FRONTEND_URL") or getattr(settings, "FRONTEND_URL", "https://ledger.britsyncai.com")
         reset_url = f"{base.rstrip('/')}/reset-password?token={reset_token}"
         from_name = getattr(settings, "COMPANY_NAME", None) or settings.APP_NAME
         from_email = settings.SENDER_EMAIL or "onboarding@resend.dev"
@@ -137,6 +137,7 @@ class EmailService:
             f"{reset_url}\n\n"
             "If you didn't request this, you can safely ignore this email."
         )
+        print(f"[RESET_LINK] {reset_url}", flush=True)
         try:
             params = {
                 "from": f"{from_name} <{from_email}>",

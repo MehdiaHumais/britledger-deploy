@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { Fingerprint } from 'lucide-react'
@@ -329,9 +330,8 @@ export default function LoginPage() {
                     Forgot password?
                   </Link>
                 </div>
-                <Input 
+                <PasswordInput 
                   id="password" 
-                  type="password" 
                   required 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

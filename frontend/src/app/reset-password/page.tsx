@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
@@ -78,9 +79,8 @@ function ResetPasswordContent() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium" htmlFor="password">New Password</label>
-                  <Input 
+                  <PasswordInput 
                     id="password" 
-                    type="password" 
                     placeholder="••••••••" 
                     required 
                     value={password}
@@ -89,9 +89,8 @@ function ResetPasswordContent() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium" htmlFor="confirm">Confirm Password</label>
-                  <Input 
+                  <PasswordInput 
                     id="confirm" 
-                    type="password" 
                     placeholder="••••••••" 
                     required 
                     value={confirm}
