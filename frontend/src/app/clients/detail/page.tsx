@@ -85,6 +85,7 @@ function ClientDetailContent() {
   const clientStatusVariant = normalizeStatus(client.status) === 'active' ? 'default' : 'secondary'
 
   const handleDelete = async () => {
+    if (!id) return
     try {
       await db.clients.delete(id)
       router.push('/clients')
