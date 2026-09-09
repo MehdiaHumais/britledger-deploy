@@ -10,20 +10,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [isReady, setIsReady] = useState(false)
-  const checkedRef = useRef(false)
+  const verifiedRef = useRef(false)
 
   const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
+  const isPublic = publicRoutes.includes(pathname)
 
   useEffect(() => {
-    if (checkedRef.current) return
-    checkedRef.current = true
+    if (verifiedRef.current) return
 
-    const verifySession = async () => {
+    const run = async () => {
       if (isAuthenticated && token) {
         try {
-          const res = await api.get('/api/v1/auth/me', { timeout: 5000 })
+          const res = await api.get('/api/v1/auth/me', { timeout: 8000 })
           const userData = res.data?.data
-          if (!userData) { throw new Error('No user data') }
+          if (!userData) throw new Error('No user data')
           const prev = useAuthStore.getState().user
           useAuthStore.getState().setUser({
             ...prev,
@@ -39,27 +39,29 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             email_notifications: userData.email_notifications ?? prev?.email_notifications,
             ai_notifications: userData.ai_notifications ?? prev?.ai_notifications,
           })
+          verifiedRef.current = true
+          setIsReady(true)
         } catch (err: any) {
           if (err.response?.status === 401 || err.response?.status === 403) {
             const detail = err.response?.data?.detail || 'Session expired'
             sessionStorage.setItem('britledger_logout_reason', detail)
             logout()
             router.push('/login')
-            return
+          } else {
+            verifiedRef.current = true
+            setIsReady(true)
           }
         }
-      }
-
-      if (!isAuthenticated && !publicRoutes.includes(pathname)) {
+      } else if (!isPublic) {
         router.push('/login')
-      } else if (isAuthenticated && publicRoutes.includes(pathname)) {
-        router.push('/dashboard')
+      } else {
+        verifiedRef.current = true
+        setIsReady(true)
       }
-      setIsReady(true)
     }
 
-    verifySession()
-  }, [isAuthenticated, pathname, router, logout, token])
+    run()
+  }, [isAuthenticated, token, isPublic, router, logout])
 
   if (!isReady) {
     return (

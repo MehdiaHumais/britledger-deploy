@@ -2,6 +2,7 @@ import '@/app/globals.css'
 import type { Metadata } from 'next'
 import { ToastProvider } from '@/components/ui/toast'
 import { AppInitializer } from '@/components/app-initializer'
+import { ClientProviders } from '@/components/client-providers'
 
 export const metadata: Metadata = {
   title: 'BritLedger AI - Modern Bookkeeping & Invoicing',
@@ -28,7 +29,9 @@ export default function RootLayout({
       <body className="font-sans" suppressHydrationWarning>
         <ToastProvider>
           <AppInitializer>
-            {children}
+            <ClientProviders>
+              {children}
+            </ClientProviders>
           </AppInitializer>
         </ToastProvider>
       </body>
