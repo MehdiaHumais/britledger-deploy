@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     AI_MODEL: str = "gpt-4"
     EMAIL_API_KEY: Optional[str] = None
 
+    # SMTP Email Settings
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+
     # Sentry
     SENTRY_DSN: Optional[str] = None
     SENTRY_ENVIRONMENT: str = "development"

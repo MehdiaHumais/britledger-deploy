@@ -1,6 +1,12 @@
 import resend
 import os
 import html as html_mod
+import smtplib
+import ssl
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from typing import List, Optional
 
 from app.core.config import settings
@@ -17,6 +23,129 @@ def resolve_avatar_url(avatar, user_id):
 class EmailService:
     def __init__(self):
         resend.api_key = settings.EMAIL_API_KEY
+
+    @property
+    def smtp_configured(self) -> bool:
+        return all([
+            settings.SMTP_HOST,
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD,
+        ])
+
+    def _send_via_smtp(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        text_content: str,
+        from_email: str,
+        from_name: str,
+        attachments: Optional[List[dict]] = None,
+        reply_to: Optional[str] = None,
+    ):
+        if not self.smtp_configured:
+            return None, "SMTP not configured (set SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD)"
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{from_name} <{from_email}>"
+        msg["To"] = to_email
+        if reply_to:
+            msg["Reply-To"] = reply_to
+
+        if text_content:
+            msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        if attachments:
+            for att in attachments:
+                content = att.get("content")
+                if isinstance(content, str):
+                    try:
+                        import base64
+                        content = base64.b64decode(content)
+                    except:
+                        content = content.encode("utf-8")
+                if isinstance(content, (list, tuple)):
+                    content = bytes(content) if isinstance(content, list) else bytes(content)
+                if isinstance(content, (bytes, bytearray)):
+                    part = MIMEBase("application", "octet-stream")
+                    part.set_payload(bytes(content))
+                    encoders.encode_base64(part)
+                    part.add_header(
+                        "Content-Disposition",
+                        "attachment",
+                        filename=att.get("filename", "attachment.pdf"),
+                    )
+                    msg.attach(part)
+
+        try:
+            context = ssl.create_default_context()
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
+            server.ehlo()
+            if settings.SMTP_USE_TLS:
+                server.starttls(context=context)
+                server.ehlo()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.sendmail(from_email, [to_email], msg.as_string())
+            server.quit()
+            print(f"[EMAIL_SUCCESS] SMTP email sent to {to_email}")
+            return {"id": f"smtp:{to_email}"}, None
+        except Exception as e:
+            error_msg = str(e)
+            print(f"[EMAIL_ERROR_SMTP] {error_msg}")
+            return None, error_msg
+
+    def _send_via_resend(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        text_content: str,
+        from_email: str,
+        from_name: str,
+        attachments: Optional[List[dict]] = None,
+        reply_to: Optional[str] = None,
+    ):
+        processed_attachments = []
+        if attachments:
+            for att in attachments:
+                content = att.get("content")
+                if isinstance(content, str):
+                    try:
+                        import base64
+                        content = base64.b64decode(content)
+                    except:
+                        pass
+
+                if isinstance(content, (bytes, bytearray)):
+                    content = list(content)
+
+                processed_attachments.append({
+                    "filename": att.get("filename"),
+                    "content": content
+                })
+
+        params = {
+            "from": f"{from_name} <{from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+            "text": text_content,
+        }
+        if reply_to:
+            params["reply_to"] = [reply_to]
+        if processed_attachments:
+            params["attachments"] = processed_attachments
+
+        try:
+            result = resend.Emails.send(params)
+            print(f"[EMAIL_SUCCESS] Resend ID: {getattr(result, 'id', result)}")
+            return result, None
+        except Exception as e:
+            error_msg = str(e)
+            print(f"[EMAIL_ERROR] {error_msg}")
+            return None, error_msg
 
     @staticmethod
     def _html_notes(notes):
@@ -52,48 +181,32 @@ class EmailService:
 
         print(f"[EMAIL_PERSONALIZED] Sending: {personalized_subject}")
         
-        processed_attachments = []
-        if attachments:
-            for att in attachments:
-                content = att.get("content")
-                if isinstance(content, str):
-                    try:
-                        import base64
-                        content = base64.b64decode(content)
-                    except:
-                        pass
-                
-                if isinstance(content, (bytes, bytearray)):
-                    content = list(content)
-                    
-                processed_attachments.append({
-                    "filename": att.get("filename"),
-                    "content": content
-                })
-
-        params = {
-            "from": f"{from_name} <{from_email}>",
-            "to": [to_email],
-            "subject": personalized_subject,
-            "html": html_content,
-            "text": text_content,
-        }
-        if reply_to:
-            params["reply_to"] = [reply_to]
-        if processed_attachments:
-            params["attachments"] = processed_attachments
-            
-        try:
-            result = resend.Emails.send(params)
-            print(f"[EMAIL_SUCCESS] Resend ID: {getattr(result, 'id', result)}")
+        result, error = self._send_via_smtp(
+            to_email=to_email,
+            subject=personalized_subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=from_email,
+            from_name=from_name,
+            attachments=attachments,
+            reply_to=reply_to,
+        )
+        if result is not None:
             return result, None
-        except Exception as e:
-            error_msg = str(e)
-            print(f"[EMAIL_ERROR] {error_msg}")
-            return None, error_msg
+
+        return self._send_via_resend(
+            to_email=to_email,
+            subject=personalized_subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=from_email,
+            from_name=from_name,
+            attachments=attachments,
+            reply_to=reply_to,
+        )
 
     def send_password_reset_email(self, to_email: str, reset_token: str) -> tuple:
-        """Send a password reset link via Resend."""
+        """Send a password reset link via SMTP (primary) or Resend (fallback)."""
         resend.api_key = settings.EMAIL_API_KEY
         base = os.getenv("FRONTEND_URL") or getattr(settings, "FRONTEND_URL", "https://ledger.britsyncai.com")
         reset_url = f"{base.rstrip('/')}/reset-password?token={reset_token}"
@@ -138,15 +251,27 @@ class EmailService:
             "If you didn't request this, you can safely ignore this email."
         )
         print(f"[RESET_LINK] {reset_url}", flush=True)
+        result, error = self._send_via_smtp(
+            to_email=to_email,
+            subject=subject,
+            html_content=html,
+            text_content=text,
+            from_email=from_email,
+            from_name=from_name,
+        )
+        if result is not None:
+            print(f"[EMAIL_SUCCESS] Password reset email sent to {to_email}")
+            return result, None
+
         try:
-            params = {
-                "from": f"{from_name} <{from_email}>",
-                "to": [to_email],
-                "subject": subject,
-                "html": html,
-                "text": text,
-            }
-            result = resend.Emails.send(params)
+            result, error = self._send_via_resend(
+                to_email=to_email,
+                subject=subject,
+                html_content=html,
+                text_content=text,
+                from_email=from_email,
+                from_name=from_name,
+            )
             print(f"[EMAIL_SUCCESS] Password reset email sent to {to_email}")
             return result, None
         except Exception as e:
